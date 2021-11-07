@@ -1,6 +1,6 @@
 # DFS-Lib
 
-![](./assets/dfs-lib.png)
+![logo](./assets/dfs-lib.png)
 
 ## Functionality
 
