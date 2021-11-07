@@ -4,21 +4,27 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
 import org.apache.hadoop.fs.permission.FsPermission
 
-/** Object to Define Permission: use the function to return FsPermission from
-  * unix string use the function to return FsPermission from octal
-  * representation Object factory to set Owner Object factory to set Permissions
-  */
-
+/** Create a FsPermission object using unix string */
 object Perm {
+  /**
+    *
+    *
+    * @param unixPermission
+    * @return
+    */
   def apply(unixPermission: String): FsPermission =
     FsPermission.valueOf(unixPermission)
-
-  def apply(octalPermission: Short): FsPermission =
-    new FsPermission(octalPermission)
 }
 
+/** Set owner ...
+  */
 object chown {}
+
+/** Set permission
+  */
 object chmod {
-  def apply(fs: FileSystem, path: Path, perm: FsPermission): Unit =
-    fs.setPermission(path, perm)
+  def apply(fs: FileSystem, path: String, perm: FsPermission): Unit = {
+    val pathToSet = new Path(path)
+    fs.setPermission(pathToSet, perm)
+  }
 }

@@ -7,97 +7,70 @@ import org.apache.hadoop.fs.FSDataOutputStream
 import org.apache.hadoop.hdfs.MiniDFSCluster
 import org.apache.hadoop.conf.Configuration
 
-/** Create a file to the specified path. It optionnaly accepts:
-  *   - a string to set set permission using the unix format // TODO
-  *   - a short integer to set the hadoop replication factor
-  *   - a boolean to specify if file can be overwritten if already present
-  *   - an interger to set the size of the writting buffer
-  *   - a long integer to set the hadoop block size
-  * By default it overwrites file if already present and recursively
-  * create parent missing parent folder. To create directories please use
+/** Create a file to the specified path with default permissions. Create missing
+  * parent directories found in the path. You can decide to (i) overwrite the
+  * file, set (ii) the hadoop replication factor, (iii) the hadoop block size,
+  * (iv) the writing buffer size. To create directories please prefer using
   * [[dfs.mkdir]]
   */
 object touch {
 
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @return
-    *   a FSDataOutputStream
-    */
-  def apply(
-      fs: FileSystem,
-      path: String,
-  ): FSDataOutputStream =
-    fs.create(new Path(path))
-
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param overwrite
-    *   if set to true it overwrites existing file else throws an error
-    * @return
-    *   a FSDataOutputStream at indicated path
+  /**
+    * Create file at indicated path. If specified, can overwrite exisisting file
+    *
+    * @param fs Hadoop filesystem
+    * @param path file path
+    * @param overwrite if set to true overwrite existing file
+    * @return true if operation succeeds false otherwise
     */
   def apply(
       fs: FileSystem,
       path: String,
       overwrite: Boolean
-  ): FSDataOutputStream =
-    fs.create(new Path(path), overwrite)
+  ): Boolean = {
+    val filePath = new Path(path)
+    if (cannotOverwrite(fs, overwrite, filePath)) false
+    else {
+      fs.create(new Path(path), overwrite).close()
+      true
+    }
+  }
 
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param replicationFactor
-    *   determines how much time the file block should be replicated
-    * @return
-    *   a FSDataOutputStream at indicated path
-    */
-  def apply(
-      fs: FileSystem,
-      path: String,
-      replicationFactor: Short
-  ): FSDataOutputStream =
-    fs.create(new Path(path), replicationFactor)
-
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param overwrite
-    *   if set to true it overwrites existing file else throws an error
-    * @param bufferSize
-    *   determines how much data is buffered during read and write operations
-    *   (multiple of 4096 for intel x86)
-    * @return
-    *   a FSDataOutputStream at indicated path
+  /**
+    * Create file at indicated path and with specified bufferSize.
+    * If specified, can overwrite exisisting file.
+    *
+    * @param fs Hadoop filesystem
+    * @param path file path
+    * @param overwrite if set to true overwrite existing file
+    * @param bufferSize size of the writing buffer, should be a multiple of 4096
+    * @return true if operation succeeds false otherwise
     */
   def apply(
       fs: FileSystem,
       path: String,
       overwrite: Boolean,
-      bufferSize: Int
-  ): FSDataOutputStream =
-    fs.create(new Path(path), overwrite, bufferSize)
+      bufferSize: Short
+  ): Boolean = {
+    val filePath = new Path(path)
+    if (cannotOverwrite(fs, overwrite, filePath)) false
+    else {
+      fs.create(filePath, bufferSize).close()
+      true
+    }
+  }
 
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param overwrite
-    *   if set to true it overwrites existing file else throws an error
-    * @param bufferSize
-    *   determines how much data is buffered during read and write operations
-    * @param replicationFactor
-    *   hdfs replication factor of your file
-    * @param blockSize
-    *   hdfs file block size, 134217728by default
+  /**
+    * Create file at indicated path and with specified bufferSize, hadoop replication
+    * and hadoop block size. If specified, can overwrite exisisting file.
+    *
+    * @param fs Hadoop filesystem
+    * @param path file path
+    * @param overwrite if set to true overwrite existing file
+    * @param bufferSize size of the writing buffer, should be a multiple of 4096
+    * @param replicationFactor Hadoop replication factor on data nodes
+    * @param blockSize Hadoop file block size on data nodes
     * @return
-    *   a FSDataOutputStream at indicated path
     */
   def apply(
       fs: FileSystem,
@@ -106,21 +79,19 @@ object touch {
       bufferSize: Int,
       replicationFactor: Short,
       blockSize: Long
-  ): FSDataOutputStream =
-    fs.create(
-      new Path(path),
-      overwrite,
-      bufferSize,
-      replicationFactor,
-      blockSize
-    )
+  ): Boolean = {
+    val filePath = new Path(path)
+    if (cannotOverwrite(fs, overwrite, filePath)) false
+    else {
+      fs.create(filePath, overwrite, bufferSize, replicationFactor, blockSize).close()
+      true
+    }
+  }
+
+  def cannotOverwrite(fs: FileSystem, overwrite: Boolean, path: Path): Boolean =
+    !overwrite && dfs.exists(fs, path)
 }
 
-/** Create a folder to the specified path. It optionnaly accepts:
-  *   - a string to set set permission using the unix format
-  *   - a short integer to set permission in the octal format
-  *   - a boolean to specify if file can be overwritten if already present
-  */
 object mkdir {
 
   /** @param fs
@@ -128,53 +99,39 @@ object mkdir {
     * @param path
     *   absolute path of the file to be created
     * @return
-    *   true if process has been successful false otherwise
+    *   true if operation succeded
     */
-  def apply(fs: FileSystem, path: String): Boolean =
-    fs.mkdirs(new Path(path))
-
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param unix
-    *   a Unix symbolic permission string
-    * @return
-    *   true if process has been successful false otherwise
-    */
-  def apply(fs: FileSystem, path: String, unix: String): Boolean =
-    fs.mkdirs(new Path(path), dfs.Perm(unix))
-
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
-    * @param path
-    *   absolute path of the file to be created
-    * @param octal
-    *   a Unix symbolic permission string
-    * @return
-    *   true if process has been successful false otherwise
-    */
-  def apply(fs: FileSystem, path: String, octal: Short): Boolean =
-    fs.mkdirs(new Path(path), dfs.Perm(octal))
+  def apply(fs: FileSystem, path: String): Boolean = {
+    val pathDir = new Path(path)
+    fs.mkdirs(pathDir)
+  }
 }
 
-object run extends App {
-  val config = new Configuration
-  val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
-  val runningCluster = cluster.build()
-  val fs = runningCluster.getFileSystem()
-  val pathFile = "parent/directory/dummy.txt"
-  touch(fs, pathFile, false)
-  val fileStat = fs.getFileStatus(new Path(pathFile))
-  println("-------- FILE STATS ----------")
-  println("BLOCKSIZE: " + fileStat.getBlockSize())
-  println("BLOCKSIZE: " + fileStat.getOwner())
-  println("BLOCKSIZE: " + fileStat.getPermission())
-  println("BLOCKSIZE: " + fileStat.getReplication())
-  runningCluster.shutdown()
+object mv {
+  // use the rename function for hadoop API
+}
+object rm {
+  // use the delete function for hadoop API
+}
+object cp {
+// static boolean 	copy(FileSystem srcFS, FileStatus srcStatus, FileSystem dstFS, Path dst, boolean deleteSource, boolean overwrite, Configuration conf)
 }
 
-/** touch mkdir >> for concatenating files move and rename use mv
+// object run extends App {
+//   val config = new Configuration
+//   val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
+//   val runningCluster = cluster.build()
+//   val fs = runningCluster.getFileSystem()
+//   val pathDir1 = "my/test/directoy_permission_unix/"
+//   val fileStat = fs.getFileStatus(new Path(pathDir1))
+//   println("-------- FOLDER STATS ----------")
+//   println(fs.getFileStatus(new Path(pathDir1)).getPermission())
+//   println("-------- FOLDER STATS ----------")
+//   runningCluster.shutdown()
+// }
+
+/** mv -> (moveOnly, renameOnly) cp -> cp -> (toLocal: boolean ToRemote:
+  * boolean) rm -> delete, deleteOnExit
   */
 
-  // -rwxr-xr-x (represented in octal notation as 0755)
+// -rwxr-xr-x (represented in octal notation as 0755)
