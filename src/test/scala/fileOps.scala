@@ -33,54 +33,98 @@ trait miniHDFSRunner extends TestSuite with BeforeAndAfterAll {
     return cluster.build()
   }
 }
-
-class TestFileAndFolderOps extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
-  "Files" should "be created at indicated path" in {
+@DoNotDiscover
+class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
+  "File" should "be created at indicated path" in {
     val fs = clusterTest.getFileSystem()
-    val pathFile1 = "parent/directory/test_file01.txt"
-    val pathFile2 = "parent/directory/test_file02.txt"
-    assert(dfs.touch(fs, pathFile1, true))
-    assert(dfs.touch(fs, pathFile2, true))
+    val pathFile = "parent/directory/test_file01.txt"
+    dfs.touch(fs = fs, path = pathFile, overwrite = false)
+    assert(dfs.exists(fs = fs, path = pathFile))
+    assert(dfs.isFile(fs = fs, path = pathFile))
   }
 
-  "If overwrite is true, the file" should "be overwriten" in {
+  "If overwrite is set to true and file exists, the file" should " be overwriten" in {
+    val fs = clusterTest.getFileSystem()
+    val pathFile = "parent/directory/test_file02"
+    dfs.touch(fs = fs, path = pathFile, overwrite = false)
+    assert(dfs.exists(fs = fs, path = pathFile))
+    assert(dfs.isFile(fs = fs, path = pathFile))
+    dfs.touch(fs = fs, path = pathFile, overwrite = true)
+    assert(dfs.exists(fs = fs, path = pathFile))
+    assert(dfs.isFile(fs = fs, path = pathFile))
+  }
+
+  "If overwrite is set to false and file exists, operation" should " raise an error" in {
     val fs = clusterTest.getFileSystem()
     val pathFile = "parent/directory/test_file03"
-    assert(dfs.touch(fs, pathFile, true))
-    assert(dfs.touch(fs, pathFile, true))
+    dfs.touch(fs = fs, path = pathFile, overwrite = false)
+    assert(dfs.exists(fs = fs, path = pathFile))
+    assert(dfs.isFile(fs = fs, path = pathFile))
+    a [RemoteException] should be thrownBy dfs.touch(clusterTest.getFileSystem(), pathFile, false)
   }
 
-  "If overwrite is false and path does not exist, the file" should "be created at indicated path" in {
+  "cannotOverrides" should "return true if and only if overwrite is set to false and file exists" in {
     val fs = clusterTest.getFileSystem()
-    val pathFile1 = "parent/directory/test_file04.txt"
-    val pathFile2 = "parent/directory/test_file05.txt"
-    assert(dfs.touch(fs, pathFile1, false))
-    assert(dfs.touch(fs, pathFile2, false))
-  }
-
-  "If overwrite is false and path exists, the file" should "not be created at indicated path" in {
-    val fs = clusterTest.getFileSystem()
-    val pathFile = "parent/directory/test_file06.txt"
-    assert(dfs.touch(fs, pathFile, false))
-    assert(!dfs.touch(fs, pathFile, false))
-  }
-
-  "Directories" should "be created at indicated path" in {
-    val fs = clusterTest.getFileSystem()
-    val pathDir = "my/test/directoy/"
-    assert(dfs.mkdir(fs, pathDir))
-  }
-
-  "Creation of directories and subsequent files" should "work at indicated path" in {
-    val fs = clusterTest.getFileSystem()
-    val pathDir = "my/newTest/directoy/"
-    val pathFile1 = "my/newTest/directoy/test_file07.txt"
-    val pathFile2 = "my/newTest/directoy/test_file08.txt"
-    assert(dfs.mkdir(fs, pathDir))
-    assert(dfs.touch(fs, pathFile1, true))
-    assert(dfs.touch(fs, pathFile2, true))
+    val pathFile1 = "parent/directory/test_file04"
+    val pathFile2 = "parent/directory/test_file05"
+    val pathFile3 = "unexisting/path/test_file06"
+    dfs.touch(fs = fs, path = pathFile1, overwrite = false)
+    dfs.touch(fs = fs, path = pathFile2, overwrite = false)
+    val cannotOverwrite1 = dfs.touch.cannotOverwrite(fs = fs, overwrite = false, path = new Path(pathFile1))
+    val cannotOverwrite2 = dfs.touch.cannotOverwrite(fs = fs, overwrite = true,  path = new Path(pathFile2))
+    val cannotOverwrite3 = dfs.touch.cannotOverwrite(fs = fs, overwrite = true,  path = new Path(pathFile3))
+    val cannotOverwrite4 = dfs.touch.cannotOverwrite(fs = fs, overwrite = false, path = new Path(pathFile3))
+    assert(dfs.exists(fs = fs, path = pathFile1))
+    assert(dfs.exists(fs = fs, path = pathFile2))
+    assert(cannotOverwrite1)
+    assert(!cannotOverwrite2)
+    assert(!cannotOverwrite3)
+    assert(!cannotOverwrite4)
   }
 }
+
+  // "Directories" should "be created at indicated path" in {
+  //   val fs = clusterTest.getFileSystem()
+  //   val pathDir = "my/test/directoy/"
+  //   assert(dfs.mkdir(fs, pathDir))
+  // }
+
+  // "Creation of directories and subsequent files" should "work at indicated path" in {
+  //   val fs = clusterTest.getFileSystem()
+  //   val pathDir = "my/newTest/directoy/"
+  //   val pathFile1 = "my/newTest/directoy/test_file07.txt"
+  //   val pathFile2 = "my/newTest/directoy/test_file08.txt"
+  //   assert(dfs.mkdir(fs, pathDir))
+  //   assert(dfs.touch(fs, pathFile1, true))
+  //   assert(dfs.touch(fs, pathFile2, true))
+  // }
+
+  // "Moving a file to a destination folder" should "work as expected" in {
+  //   val fs = clusterTest.getFileSystem()
+  //   val sourceFile = "source/dir/source_file01.txt"
+  //   val destDir = "destination/dir/"
+  //   val fileNewName = "new_source_file01.txt"
+  //   dfs.touch(fs, sourceFile, false)
+  //   dfs.mkdir(fs, destDir)
+  //   assert(dfs.mv(fs, sourceFile, destDir+fileNewName))
+  //   assert(dfs.exists(fs, destDir+fileNewName))
+  // }
+
+  // "Moving a file to a non existing destination folder" should " not work" in {
+  //   val fs = clusterTest.getFileSystem()
+  //   val sourceFile = "source/dir/source_file.txt"
+  //   val destDir = "destination/dir/"
+  //   val fileNewName = "new_source_file.txt"
+  //   // before creation
+  //   assert(!dfs.mv(fs, sourceFile, destDir))
+  //   // create file and directory
+  //   dfs.touch(fs, sourceFile, false)
+  //   assert(!dfs.mv(fs, sourceFile, destDir+fileNewName))
+  // }
+
+class TestDistributor extends Stepwise(
+  Sequential(new TestTouch)
+)
 
 // BLOCKSIZE: 134217728
 // BLOCKSIZE: fbraza
