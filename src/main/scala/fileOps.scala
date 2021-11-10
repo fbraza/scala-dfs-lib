@@ -1,11 +1,13 @@
 package dfs
 
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
+import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, PathFilter}
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.fs.FSDataOutputStream
+import org.apache.hadoop.ipc.RemoteException
+import java.rmi.Remote
 
-import org.apache.hadoop.hdfs.MiniDFSCluster
-import org.apache.hadoop.conf.Configuration
+// import org.apache.hadoop.hdfs.MiniDFSCluster
+// import org.apache.hadoop.conf.Configuration
 
 /** Create a file to the specified path with default permissions. Create missing
   * parent directories found in the path. You can decide to (i) overwrite the
@@ -15,61 +17,78 @@ import org.apache.hadoop.conf.Configuration
   */
 object touch {
 
-  /**
-    * Create file at indicated path. If specified, can overwrite exisisting file
+  /** Create file at indicated path. If specified, can overwrite exisisting file
     *
-    * @param fs Hadoop filesystem
-    * @param path file path
-    * @param overwrite if set to true overwrite existing file
-    * @return true if operation succeeds false otherwise
+    * @param fs
+    *   Hadoop filesystem
+    * @param path
+    *   file path
+    * @param overwrite
+    *   if set to true overwrite existing file
+    * @return
     */
   def apply(
       fs: FileSystem,
       path: String,
       overwrite: Boolean
-  ): Boolean = {
+  ): Unit = {
     val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) false
-    else {
+    if (cannotOverwrite(fs, overwrite, filePath)) {
+      throw new RemoteException(
+        "IOExeception",
+        "File cannot be overwritten. Set overwrite to true"
+      )
+    } else {
       fs.create(new Path(path), overwrite).close()
-      true
     }
   }
 
-  /**
-    * Create file at indicated path and with specified bufferSize.
-    * If specified, can overwrite exisisting file.
+  /** Create file at indicated path and with specified bufferSize. If specified,
+    * can overwrite exisisting file.
     *
-    * @param fs Hadoop filesystem
-    * @param path file path
-    * @param overwrite if set to true overwrite existing file
-    * @param bufferSize size of the writing buffer, should be a multiple of 4096
-    * @return true if operation succeeds false otherwise
+    * @param fs
+    *   Hadoop filesystem
+    * @param path
+    *   file path
+    * @param overwrite
+    *   if set to true overwrite existing file
+    * @param bufferSize
+    *   size of the writing buffer, should be a multiple of 4096
+    * @return
     */
   def apply(
       fs: FileSystem,
       path: String,
       overwrite: Boolean,
       bufferSize: Short
-  ): Boolean = {
+  ): Unit = {
     val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) false
-    else {
+    if (cannotOverwrite(fs, overwrite, filePath)) {
+      throw new RemoteException(
+        "IOExeception",
+        "File cannot be overwritten. Set overwrite to true"
+      )
+    } else {
       fs.create(filePath, bufferSize).close()
-      true
     }
   }
 
-  /**
-    * Create file at indicated path and with specified bufferSize, hadoop replication
-    * and hadoop block size. If specified, can overwrite exisisting file.
+  /** Create file at indicated path and with specified bufferSize, hadoop
+    * replication and hadoop block size. If specified, can overwrite exisisting
+    * file.
     *
-    * @param fs Hadoop filesystem
-    * @param path file path
-    * @param overwrite if set to true overwrite existing file
-    * @param bufferSize size of the writing buffer, should be a multiple of 4096
-    * @param replicationFactor Hadoop replication factor on data nodes
-    * @param blockSize Hadoop file block size on data nodes
+    * @param fs
+    *   Hadoop filesystem
+    * @param path
+    *   file path
+    * @param overwrite
+    *   if set to true overwrite existing file
+    * @param bufferSize
+    *   size of the writing buffer, should be a multiple of 4096
+    * @param replicationFactor
+    *   Hadoop replication factor on data nodes
+    * @param blockSize
+    *   Hadoop file block size on data nodes
     * @return
     */
   def apply(
@@ -79,12 +98,16 @@ object touch {
       bufferSize: Int,
       replicationFactor: Short,
       blockSize: Long
-  ): Boolean = {
+  ): Unit = {
     val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) false
-    else {
-      fs.create(filePath, overwrite, bufferSize, replicationFactor, blockSize).close()
-      true
+    if (cannotOverwrite(fs, overwrite, filePath)) {
+      throw new RemoteException(
+        "IOExeception",
+        "File cannot be overwritten. Set overwrite to true"
+      )
+    } else {
+      fs.create(filePath, overwrite, bufferSize, replicationFactor, blockSize)
+        .close()
     }
   }
 
@@ -108,10 +131,40 @@ object mkdir {
 }
 
 object mv {
-  // use the rename function for hadoop API
-}
-object rm {
-  // use the delete function for hadoop API
+
+  /** To rename and move
+    *
+    * @param fs
+    * @param source
+    * @param destination
+    * @return
+    */
+  def apply(fs: FileSystem, source: String, destination: String): Boolean = {
+    if (!dfs.exists(fs, source)) false
+    else {
+      val srcPath = new Path(source)
+      val dstPath = new Path(destination)
+      fs.rename(srcPath, dstPath)
+    }
+  }
+
+  object files {
+    def apply(fs: FileSystem, source: String, destination: String): Unit = {
+      fs.listStatus(new Path(source))
+        .filter(status => status.isFile())
+        .map(status => status.getPath().toString())
+        .foreach(source => dfs.mv(fs, source, destination))
+    }
+  }
+
+  object dirs {
+    def apply(fs: FileSystem, source: String, destination: String): Unit = {
+      fs.listStatus(new Path(source))
+        .filter(status => status.isDirectory())
+        .map(status => status.getPath().toString())
+        .foreach(source => dfs.mv(fs, source, destination))
+    }
+  }
 }
 object cp {
 // static boolean 	copy(FileSystem srcFS, FileStatus srcStatus, FileSystem dstFS, Path dst, boolean deleteSource, boolean overwrite, Configuration conf)
@@ -130,8 +183,7 @@ object cp {
 //   runningCluster.shutdown()
 // }
 
-/** mv -> (moveOnly, renameOnly) cp -> cp -> (toLocal: boolean ToRemote:
-  * boolean) rm -> delete, deleteOnExit
+/** cp -> cp -> (toLocal: boolean ToRemote:boolean) rm -> delete, deleteOnExit
   */
 
 // -rwxr-xr-x (represented in octal notation as 0755)
