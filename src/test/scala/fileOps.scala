@@ -54,13 +54,13 @@ class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
     assert(dfs.isFile(fs = fs, path = pathFile))
   }
 
-  "If overwrite is set to false and file exists, operation" should " raise an error" in {
+  "If overwrite is set to false and file exists, operation" should "not succeed" in {
     val fs = clusterTest.getFileSystem()
     val pathFile = "parent/directory/test_file03"
     dfs.touch(fs = fs, path = pathFile, overwrite = false)
     assert(dfs.exists(fs = fs, path = pathFile))
     assert(dfs.isFile(fs = fs, path = pathFile))
-    a [RemoteException] should be thrownBy dfs.touch(clusterTest.getFileSystem(), pathFile, false)
+    assert(!dfs.touch(fs = fs, path = pathFile, overwrite = false))
   }
 
   "cannotOverrides" should "return true if and only if overwrite is set to false and file exists" in {
@@ -83,32 +83,54 @@ class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
   }
 }
 
-  // "Directories" should "be created at indicated path" in {
-  //   val fs = clusterTest.getFileSystem()
-  //   val pathDir = "my/test/directoy/"
-  //   assert(dfs.mkdir(fs, pathDir))
-  // }
+@DoNotDiscover
+class TestMkdir extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
+  "Directory" should "be created at indicated path" in {
+    val fs = clusterTest.getFileSystem()
+    val pathDir = "my/test/directoy01/"
+    assert(dfs.mkdir(fs, pathDir))
+  }
 
-  // "Creation of directories and subsequent files" should "work at indicated path" in {
-  //   val fs = clusterTest.getFileSystem()
-  //   val pathDir = "my/newTest/directoy/"
-  //   val pathFile1 = "my/newTest/directoy/test_file07.txt"
-  //   val pathFile2 = "my/newTest/directoy/test_file08.txt"
-  //   assert(dfs.mkdir(fs, pathDir))
-  //   assert(dfs.touch(fs, pathFile1, true))
-  //   assert(dfs.touch(fs, pathFile2, true))
-  // }
+  "it" should "return false if folder already exists" in {
+    val fs = clusterTest.getFileSystem()
+    val pathDir = "my/test/directoy02/"
+    dfs.mkdir(fs, pathDir)
+    assert(!dfs.mkdir(fs, pathDir))
+  }
+}
 
-  // "Moving a file to a destination folder" should "work as expected" in {
-  //   val fs = clusterTest.getFileSystem()
-  //   val sourceFile = "source/dir/source_file01.txt"
-  //   val destDir = "destination/dir/"
-  //   val fileNewName = "new_source_file01.txt"
-  //   dfs.touch(fs, sourceFile, false)
-  //   dfs.mkdir(fs, destDir)
-  //   assert(dfs.mv(fs, sourceFile, destDir+fileNewName))
-  //   assert(dfs.exists(fs, destDir+fileNewName))
-  // }
+@DoNotDiscover
+class TestMv extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
+  "Renaming an existing file" should "work" in {
+    val fs = clusterTest.getFileSystem()
+    val sourceFile = "source/dir/source_file01.txt"
+    val destDir = "source/dir/"
+    val fileNewName = "new_source_file01.txt"
+    dfs.touch(fs, sourceFile, false)
+    assert(dfs.mv(fs = fs, source = sourceFile, destination = destDir+fileNewName))
+    assert(dfs.exists(fs = fs, path = destDir+fileNewName))
+  }
+
+  "Moving an existing file to an existing directory" should "work" in {
+    val fs = clusterTest.getFileSystem()
+    val sourceFile = "source/dir/source_file02.txt"
+    val destDir = "dest/dir/"
+    val fileName = "source_file02.txt"
+    dfs.touch(fs = fs, path = sourceFile, overwrite = false)
+    dfs.mkdir(fs = fs, path = destDir)
+    assert(dfs.mv(fs = fs, source = sourceFile, destination = destDir+fileName))
+    assert(dfs.exists(fs = fs, path = destDir+fileName))
+  }
+
+  "Moving a non-existing file to an existing directory" should "not work" in {
+    val fs = clusterTest.getFileSystem()
+    val sourceFile = "source/dir/source_file03.txt"
+    val destDir = "dest/dir/"
+    dfs.mkdir(fs = fs, path = destDir)
+    assert(!dfs.mv(fs = fs, source = sourceFile, destination = destDir))
+  }
+}
+
 
   // "Moving a file to a non existing destination folder" should " not work" in {
   //   val fs = clusterTest.getFileSystem()
@@ -123,7 +145,11 @@ class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
   // }
 
 class TestDistributor extends Stepwise(
-  Sequential(new TestTouch)
+  Sequential(
+  new TestTouch,
+  new TestMkdir,
+  new TestMv
+  )
 )
 
 // BLOCKSIZE: 134217728
