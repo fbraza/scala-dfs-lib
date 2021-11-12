@@ -6,8 +6,8 @@ import org.apache.hadoop.fs.FSDataOutputStream
 import org.apache.hadoop.ipc.RemoteException
 import java.rmi.Remote
 
-// import org.apache.hadoop.hdfs.MiniDFSCluster
-// import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.hdfs.MiniDFSCluster
+import org.apache.hadoop.conf.Configuration
 
 /** Create a file to the specified path with default permissions. Create missing
   * parent directories found in the path. You can decide to (i) overwrite the
@@ -31,15 +31,14 @@ object touch {
       fs: FileSystem,
       path: String,
       overwrite: Boolean
-  ): Unit = {
+  ): Boolean = {
     val filePath = new Path(path)
     if (cannotOverwrite(fs, overwrite, filePath)) {
-      throw new RemoteException(
-        "IOExeception",
-        "File cannot be overwritten. Set overwrite to true"
-      )
+      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
+      false
     } else {
       fs.create(new Path(path), overwrite).close()
+      true
     }
   }
 
@@ -61,15 +60,14 @@ object touch {
       path: String,
       overwrite: Boolean,
       bufferSize: Short
-  ): Unit = {
+  ): Boolean = {
     val filePath = new Path(path)
     if (cannotOverwrite(fs, overwrite, filePath)) {
-      throw new RemoteException(
-        "IOExeception",
-        "File cannot be overwritten. Set overwrite to true"
-      )
+      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
+      false
     } else {
       fs.create(filePath, bufferSize).close()
+      true
     }
   }
 
@@ -98,16 +96,15 @@ object touch {
       bufferSize: Int,
       replicationFactor: Short,
       blockSize: Long
-  ): Unit = {
+  ): Boolean = {
     val filePath = new Path(path)
     if (cannotOverwrite(fs, overwrite, filePath)) {
-      throw new RemoteException(
-        "IOExeception",
-        "File cannot be overwritten. Set overwrite to true"
-      )
+      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
+      false
     } else {
       fs.create(filePath, overwrite, bufferSize, replicationFactor, blockSize)
         .close()
+      true
     }
   }
 
@@ -122,29 +119,40 @@ object mkdir {
     * @param path
     *   absolute path of the file to be created
     * @return
-    *   true if operation succeded
+    *   true if operation succeded false if not or path already exists
     */
   def apply(fs: FileSystem, path: String): Boolean = {
     val pathDir = new Path(path)
-    fs.mkdirs(pathDir)
+    if (dfs.exists(fs, pathDir)) {
+      false
+    } else {
+      fs.mkdirs(pathDir)
+    }
   }
 }
 
 object mv {
 
-  /** To rename and move
+  /** Similar to the mv command in Bash. Use to rename or move files and folders
     *
     * @param fs
     * @param source
     * @param destination
-    * @return
+    * @return true when process succeeds false otherwise
     */
   def apply(fs: FileSystem, source: String, destination: String): Boolean = {
-    if (!dfs.exists(fs, source)) false
-    else {
-      val srcPath = new Path(source)
-      val dstPath = new Path(destination)
-      fs.rename(srcPath, dstPath)
+    if (!dfs.exists(fs, source)) {
+      println(s"dfs.mv: $source : No such file or directory")
+      false
+    }
+    val srcPath = new Path(source)
+    val dstPath = new Path(destination)
+    val isSuccess = fs.rename(srcPath, dstPath)
+    if (isSuccess) {
+      isSuccess
+    } else {
+      println(s"dfs.mv: cannot move $source to $destination: No such file or directory")
+      isSuccess
     }
   }
 
@@ -170,18 +178,19 @@ object cp {
 // static boolean 	copy(FileSystem srcFS, FileStatus srcStatus, FileSystem dstFS, Path dst, boolean deleteSource, boolean overwrite, Configuration conf)
 }
 
-// object run extends App {
-//   val config = new Configuration
-//   val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
-//   val runningCluster = cluster.build()
-//   val fs = runningCluster.getFileSystem()
-//   val pathDir1 = "my/test/directoy_permission_unix/"
-//   val fileStat = fs.getFileStatus(new Path(pathDir1))
-//   println("-------- FOLDER STATS ----------")
-//   println(fs.getFileStatus(new Path(pathDir1)).getPermission())
-//   println("-------- FOLDER STATS ----------")
-//   runningCluster.shutdown()
-// }
+object run extends App {
+  val config = new Configuration
+  val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
+  val runningCluster = cluster.build()
+  val fs = runningCluster.getFileSystem()
+  val pathFile1 = "my/test/file/to_move.txt"
+  val pathFile2 = "my/test/file/not_exist.txt"
+  val pathDir1 = "my/test/directory/"
+  dfs.touch(fs = fs, path = pathFile1, overwrite = false)
+  dfs.mkdir(fs = fs, path = pathDir1)
+  dfs.mv(fs = fs, source = pathFile2, destination = pathDir1)
+  runningCluster.shutdown()
+}
 
 /** cp -> cp -> (toLocal: boolean ToRemote:boolean) rm -> delete, deleteOnExit
   */
