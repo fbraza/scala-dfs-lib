@@ -1,4 +1,4 @@
-name := "DSTI-JSON-LOG-REPORT"
+name := "DFS-Lib"
 
 version := "1.0"
 
