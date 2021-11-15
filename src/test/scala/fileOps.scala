@@ -35,67 +35,63 @@ trait miniHDFSRunner extends TestSuite with BeforeAndAfterAll {
 }
 @DoNotDiscover
 class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
-  "File" should "be created at indicated path" in {
+  "it" should "return true when file created at indicated path" in {
     val fs = clusterTest.getFileSystem()
     val pathFile = "parent/directory/test_file01.txt"
-    dfs.touch(fs = fs, path = pathFile, overwrite = false)
-    assert(dfs.exists(fs = fs, path = pathFile))
-    assert(dfs.isFile(fs = fs, path = pathFile))
+    val isSuccess = dfs.touch(fs = fs, path = pathFile)
+    assert(isSuccess)
   }
 
-  "If overwrite is set to true and file exists, the file" should " be overwriten" in {
+  "it" should "return true if file exists and 'overwrite' is true" in {
     val fs = clusterTest.getFileSystem()
-    val pathFile = "parent/directory/test_file02"
-    dfs.touch(fs = fs, path = pathFile, overwrite = false)
-    assert(dfs.exists(fs = fs, path = pathFile))
-    assert(dfs.isFile(fs = fs, path = pathFile))
-    dfs.touch(fs = fs, path = pathFile, overwrite = true)
-    assert(dfs.exists(fs = fs, path = pathFile))
-    assert(dfs.isFile(fs = fs, path = pathFile))
+    val pathFile = "parent/directory/test_file02.txt"
+    dfs.touch(fs = fs, path = pathFile)
+    val isSuccess = dfs.touch(fs = fs, path = pathFile, overwrite = true)
+    assert(isSuccess)
   }
 
-  "If overwrite is set to false and file exists, operation" should "not succeed" in {
+  "it" should "return false if file exists and 'overwrite' is false" in {
     val fs = clusterTest.getFileSystem()
-    val pathFile = "parent/directory/test_file03"
-    dfs.touch(fs = fs, path = pathFile, overwrite = false)
-    assert(dfs.exists(fs = fs, path = pathFile))
-    assert(dfs.isFile(fs = fs, path = pathFile))
-    assert(!dfs.touch(fs = fs, path = pathFile, overwrite = false))
+    val pathFile = "parent/directory/test_file03.txt"
+    dfs.touch(fs = fs, path = pathFile)
+    val isSuccess = dfs.touch(fs = fs, path = pathFile, overwrite = false)
+    assert(!isSuccess)
   }
 
-  "cannotOverrides" should "return true if and only if overwrite is set to false and file exists" in {
+  "it" should "return false if one of the parent is a file" in {
     val fs = clusterTest.getFileSystem()
-    val pathFile1 = "parent/directory/test_file04"
-    val pathFile2 = "parent/directory/test_file05"
-    val pathFile3 = "unexisting/path/test_file06"
-    dfs.touch(fs = fs, path = pathFile1, overwrite = false)
-    dfs.touch(fs = fs, path = pathFile2, overwrite = false)
-    val cannotOverwrite1 = dfs.touch.cannotOverwrite(fs = fs, overwrite = false, path = new Path(pathFile1))
-    val cannotOverwrite2 = dfs.touch.cannotOverwrite(fs = fs, overwrite = true,  path = new Path(pathFile2))
-    val cannotOverwrite3 = dfs.touch.cannotOverwrite(fs = fs, overwrite = true,  path = new Path(pathFile3))
-    val cannotOverwrite4 = dfs.touch.cannotOverwrite(fs = fs, overwrite = false, path = new Path(pathFile3))
-    assert(dfs.exists(fs = fs, path = pathFile1))
-    assert(dfs.exists(fs = fs, path = pathFile2))
-    assert(cannotOverwrite1)
-    assert(!cannotOverwrite2)
-    assert(!cannotOverwrite3)
-    assert(!cannotOverwrite4)
+    val pathFile1 = "parent/directory/test_file04.txt"
+    val pathFile2 = "parent/directory/test_file04.txt/test_file05.txt"
+    dfs.touch(fs = fs, path = pathFile1)
+    val isSuccess = dfs.touch(fs = fs, path = pathFile2)
+    assert(!isSuccess)
   }
 }
 
 @DoNotDiscover
 class TestMkdir extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
-  "Directory" should "be created at indicated path" in {
+  "it" should "return true when directory created at indicated path" in {
     val fs = clusterTest.getFileSystem()
     val pathDir = "my/test/directoy01/"
-    assert(dfs.mkdir(fs, pathDir))
+    val isSuccess = dfs.mkdir(fs, pathDir)
+    assert(isSuccess)
   }
 
-  "it" should "return false if folder already exists" in {
+  "it" should "return false if directory already exists" in {
     val fs = clusterTest.getFileSystem()
     val pathDir = "my/test/directoy02/"
     dfs.mkdir(fs, pathDir)
-    assert(!dfs.mkdir(fs, pathDir))
+    val isSuccess = dfs.mkdir(fs, pathDir)
+    assert(!isSuccess)
+  }
+
+  "it" should "return false if one of the parent is a file" in {
+    val fs = clusterTest.getFileSystem()
+    val filePath = "my/dir/file.txt"
+    val newDir = "/newDir"
+    dfs.touch(fs = fs, path = filePath, overwrite = false)
+    val isSuccess = dfs.mkdir(fs, filePath+newDir)
+    assert(!isSuccess)
   }
 }
 
@@ -107,27 +103,35 @@ class TestMv extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
     val destDir = "source/dir/"
     val fileNewName = "new_source_file01.txt"
     dfs.touch(fs, sourceFile, false)
-    assert(dfs.mv(fs = fs, source = sourceFile, destination = destDir+fileNewName))
-    assert(dfs.exists(fs = fs, path = destDir+fileNewName))
+    assert(dfs.mv(fs = fs, from = sourceFile, to = destDir+fileNewName))
   }
 
   "Moving an existing file to an existing directory" should "work" in {
     val fs = clusterTest.getFileSystem()
     val sourceFile = "source/dir/source_file02.txt"
-    val destDir = "dest/dir/"
+    val destDir = "dest/dir02/"
     val fileName = "source_file02.txt"
     dfs.touch(fs = fs, path = sourceFile, overwrite = false)
     dfs.mkdir(fs = fs, path = destDir)
-    assert(dfs.mv(fs = fs, source = sourceFile, destination = destDir+fileName))
+    assert(dfs.mv(fs = fs, from = sourceFile, to = destDir+fileName))
     assert(dfs.exists(fs = fs, path = destDir+fileName))
+  }
+
+  "Moving an existing file to an non-existing directory" should "not work" in {
+    val fs = clusterTest.getFileSystem()
+    val sourceFile = "source/dir/source_file03.txt"
+    val destDir = "dest/dir03/"
+    val fileName = "source_file03.txt"
+    dfs.touch(fs = fs, path = sourceFile, overwrite = false)
+    assert(!dfs.mv(fs = fs, from = sourceFile, to = destDir+fileName))
   }
 
   "Moving a non-existing file to an existing directory" should "not work" in {
     val fs = clusterTest.getFileSystem()
-    val sourceFile = "source/dir/source_file03.txt"
-    val destDir = "dest/dir/"
+    val sourceFile = "source/dir/source_file04.txt"
+    val destDir = "dest/dir04/"
     dfs.mkdir(fs = fs, path = destDir)
-    assert(!dfs.mv(fs = fs, source = sourceFile, destination = destDir))
+    assert(!dfs.mv(fs = fs, from = sourceFile, to = destDir))
   }
 }
 
@@ -147,8 +151,7 @@ class TestMv extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
 class TestDistributor extends Stepwise(
   Sequential(
   new TestTouch,
-  new TestMkdir,
-  new TestMv
+  new TestMkdir
   )
 )
 
