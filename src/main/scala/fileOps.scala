@@ -1,10 +1,17 @@
 package dfs
 
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, PathFilter}
+import org.apache.hadoop.fs.{
+  FileSystem,
+  Path,
+  FileStatus,
+  PathFilter,
+  FSDataOutputStream,
+  FileAlreadyExistsException,
+  ParentNotDirectoryException
+}
 import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.hadoop.fs.FSDataOutputStream
 import org.apache.hadoop.ipc.RemoteException
-import java.rmi.Remote
+import com.typesafe.scalalogging.Logger
 
 import org.apache.hadoop.hdfs.MiniDFSCluster
 import org.apache.hadoop.conf.Configuration
@@ -14,168 +21,153 @@ import org.apache.hadoop.conf.Configuration
   * file, set (ii) the hadoop replication factor, (iii) the hadoop block size,
   * (iv) the writing buffer size. To create directories please prefer using
   * [[dfs.mkdir]]
+  *
+  * Code has been implemented to abstract away the most common errors raised by
+  * the Hadoop FileSystem Java API. Errors are catched but always logged. Failed
+  * files / dirs operations return false otherwise true.
   */
 object touch {
+  val logger = Logger("dfs.mkdir.scala")
 
-  /** Create file at indicated path. If specified, can overwrite exisisting file
+  /** Create file and all its parent directories if not existing with default permissions.
+    * It overwrites exisisting file when specified. Writing buffer size, replication factor
+    * and block size can be specified.
     *
     * @param fs
-    *   Hadoop filesystem
+    *   an instance of the Hadoop file system
     * @param path
-    *   file path
-    * @param overwrite
-    *   if set to true overwrite existing file
-    * @return
-    */
-  def apply(
-      fs: FileSystem,
-      path: String,
-      overwrite: Boolean
-  ): Boolean = {
-    val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) {
-      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
-      false
-    } else {
-      fs.create(new Path(path), overwrite).close()
-      true
-    }
-  }
-
-  /** Create file at indicated path and with specified bufferSize. If specified,
-    * can overwrite exisisting file.
-    *
-    * @param fs
-    *   Hadoop filesystem
-    * @param path
-    *   file path
+    *   a string of the file absolute path
     * @param overwrite
     *   if set to true overwrite existing file
     * @param bufferSize
-    *   size of the writing buffer, should be a multiple of 4096
-    * @return
-    */
-  def apply(
-      fs: FileSystem,
-      path: String,
-      overwrite: Boolean,
-      bufferSize: Short
-  ): Boolean = {
-    val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) {
-      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
-      false
-    } else {
-      fs.create(filePath, bufferSize).close()
-      true
-    }
-  }
-
-  /** Create file at indicated path and with specified bufferSize, hadoop
-    * replication and hadoop block size. If specified, can overwrite exisisting
-    * file.
-    *
-    * @param fs
-    *   Hadoop filesystem
-    * @param path
-    *   file path
-    * @param overwrite
-    *   if set to true overwrite existing file
-    * @param bufferSize
-    *   size of the writing buffer, should be a multiple of 4096
+    *   size of the writing buffer, 4096 by default
     * @param replicationFactor
-    *   Hadoop replication factor on data nodes
+    *   Hadoop replication factor on data nodes, 1 by default
     * @param blockSize
-    *   Hadoop file block size on data nodes
+    *   Hadoop file block size on data nodes, 134217728 bytes by default
     * @return
+    *   true if operation succeeds false otherwise
     */
   def apply(
       fs: FileSystem,
       path: String,
-      overwrite: Boolean,
-      bufferSize: Int,
-      replicationFactor: Short,
-      blockSize: Long
+      overwrite: Boolean = false,
+      bufferSize: Int = 4096,
+      replicationFactor: Short = 1.toShort,
+      blockSize: Long = 134217728
   ): Boolean = {
-    val filePath = new Path(path)
-    if (cannotOverwrite(fs, overwrite, filePath)) {
-      println(s"dfs.touch: $path : cannot be overwritten, set overwrite to true")
-      false
-    } else {
-      fs.create(filePath, overwrite, bufferSize, replicationFactor, blockSize)
-        .close()
-      true
+    val isCreated = true
+    try {
+      fs.create(new Path(path), overwrite, bufferSize, replicationFactor, blockSize).close()
+      logger.info(s"file created at path : $path")
+      isCreated
+    } catch {
+      case fae: FileAlreadyExistsException =>
+        logger.error(s"file at path : $path : already exists")
+        !isCreated
+      case pde: ParentNotDirectoryException =>
+        logger.error(s"the parent path : $path : must not be a file")
+        !isCreated
     }
   }
-
-  def cannotOverwrite(fs: FileSystem, overwrite: Boolean, path: Path): Boolean =
-    !overwrite && dfs.exists(fs, path)
 }
 
 object mkdir {
+  val logger = Logger("dfs.mkdir.scala")
 
-  /** @param fs
-    *   an instance of the java hadoop FileSystem
+  /** Create a directory and all its parents at indicated path.
+    * Existing folders cannot be overwritten.
+    *
+    * @param fs
+    *   an instance of the Hadoop file system
     * @param path
     *   absolute path of the file to be created
     * @return
-    *   true if operation succeded false if not or path already exists
+    *   true if operation succeeded false otherwise
     */
   def apply(fs: FileSystem, path: String): Boolean = {
     val pathDir = new Path(path)
+    var isCreated = true
     if (dfs.exists(fs, pathDir)) {
-      false
+      logger.error(s"cannot create directory at path : $path : already exists")
+      !isCreated
     } else {
-      fs.mkdirs(pathDir)
+        try {
+          fs.mkdirs(pathDir) // should be true if no error caught
+          logger.info(s"directory created at path : $path")
+          isCreated
+        } catch {
+          case pde: ParentNotDirectoryException =>
+            logger.error(s"the parent path : $path : must not be a file")
+            !isCreated
+        }
     }
   }
 }
 
+/** Rename or move files or folders to the specified path. Successful operations
+  * return true otherwise false.
+  */
 object mv {
+  val logger = Logger("dfs.mv.scala")
 
-  /** Similar to the mv command in Bash. Use to rename or move files and folders
+  /** Use to move a file or a folder.
     *
     * @param fs
-    * @param source
-    * @param destination
-    * @return true when process succeeds false otherwise
+    *   an instance of the Hadoop file system
+    * @param from
+    * @param to
+    * @return
+    *   true when process succeeds false otherwise
     */
-  def apply(fs: FileSystem, source: String, destination: String): Boolean = {
-    if (!dfs.exists(fs, source)) {
-      println(s"dfs.mv: $source : No such file or directory")
-      false
-    }
-    val srcPath = new Path(source)
-    val dstPath = new Path(destination)
-    val isSuccess = fs.rename(srcPath, dstPath)
-    if (isSuccess) {
-      isSuccess
+  def apply(fs: FileSystem, from: String, to: String): Boolean = {
+    val isMoved = true
+    if (to.startsWith(from)) {
+      logger.error(s"the destination : $to : cannot be a descendant of the source : $from ")
+      !isMoved
+    } else if(!dfs.exists(fs, from)) {
+        logger.error(s"cannot move source : $from : because it is not found")
+        !isMoved
+    } else if(dfs.exists(fs, to)) {
+        logger.error(s"cannot move : $from : to : $to : because destination already exists")
+        !isMoved
     } else {
-      println(s"dfs.mv: cannot move $source to $destination: No such file or directory")
-      isSuccess
+      val fromPath = new Path(from)
+      val toPath = new Path(to)
+      try {
+        fs.rename(fromPath, toPath)
+        logger.info(s"source : $from : moved to path : $to")
+        isMoved
+      } catch {
+        case pde: ParentNotDirectoryException =>
+          logger.error(s"the parent path : $to : must not be a file")
+          !isMoved
+      }
     }
   }
 
-  object files {
-    def apply(fs: FileSystem, source: String, destination: String): Unit = {
-      fs.listStatus(new Path(source))
-        .filter(status => status.isFile())
-        .map(status => status.getPath().toString())
-        .foreach(source => dfs.mv(fs, source, destination))
+  object into {
+    def apply(fs: FileSystem, from: String, to: String): Boolean = {
+      true
     }
+
   }
 
-  object dirs {
-    def apply(fs: FileSystem, source: String, destination: String): Unit = {
-      fs.listStatus(new Path(source))
-        .filter(status => status.isDirectory())
-        .map(status => status.getPath().toString())
-        .foreach(source => dfs.mv(fs, source, destination))
+  object over {
+    def apply(fs: FileSystem, from: String, to: String): Boolean = {
+      dfs.rm(fs, to, true)
+      mv.apply(fs, from, to)
     }
   }
 }
 object cp {
-// static boolean 	copy(FileSystem srcFS, FileStatus srcStatus, FileSystem dstFS, Path dst, boolean deleteSource, boolean overwrite, Configuration conf)
+// static boolean 	copy(FileSystem fromFS, FileStatus fromStatus, FileSystem toFS, Path to, boolean deleteSource, boolean overwrite, Configuration conf)
+}
+
+object rm {
+  def apply(fs: FileSystem, path: String, recursive: Boolean): Boolean = {
+    fs.delete(new Path(path), recursive)
+  }
 }
 
 object run extends App {
@@ -183,12 +175,14 @@ object run extends App {
   val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
   val runningCluster = cluster.build()
   val fs = runningCluster.getFileSystem()
-  val pathFile1 = "my/test/file/to_move.txt"
-  val pathFile2 = "my/test/file/not_exist.txt"
-  val pathDir1 = "my/test/directory/"
-  dfs.touch(fs = fs, path = pathFile1, overwrite = false)
-  dfs.mkdir(fs = fs, path = pathDir1)
-  dfs.mv(fs = fs, source = pathFile2, destination = pathDir1)
+  val from = "source/dir/myDir/faouzi.txt"
+  val to = "source/dir/otherDir/julie.txt"
+  println("========== LOGGING ====================")
+  val isMoved = dfs.mv(fs, from, to)
+  println(isMoved)
+  // DIR* FSDirectory.unprotectedRenameTo: Rename destination /user/fbraza/source/dir/myDir/faouzi/julie/myDir
+  // is a directory or file under source /user/fbraza/source/dir/myDir
+  println("========== LOGGING ====================")
   runningCluster.shutdown()
 }
 
