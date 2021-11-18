@@ -10,7 +10,7 @@
 
 ## Usage
 
-Right now and because work is in progress DFS-Lib do not aim to be a complete replacement for the `org.apache.hadoop.fs`. That being said, DFS-Lib should provide all necessary functions to perform basic and advanced file operations.
+Right now and because work is in progress DFS-Lib does not aim to be a complete replacement for the `org.apache.hadoop.fs`. That being said, DFS-Lib should provide all necessary functions to perform basic and advanced file operations.
 
 ### touch
 
@@ -38,6 +38,6 @@ dfs.touch(fs = fs, path = pathFile)
 
 ## Author
 
-## Acknowledgment
+## Acknowledgement
 
 I would like to thank @lihaoyi for his fabulous scala libraries and notably the OS-Lib tool he developed. I got heavely inspired by the way code is written there.
