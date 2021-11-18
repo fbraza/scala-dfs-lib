@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
   * files / dirs operations return false otherwise true.
   */
 object touch {
-  val logger = Logger("dfs.mkdir.scala")
+  val logger = Logger("dfs.touch.scala")
 
   /** Create file and all its parent directories if not existing with default permissions.
     * It overwrites exisisting file when specified. Writing buffer size, replication factor
@@ -111,12 +111,14 @@ object mkdir {
 object mv {
   val logger = Logger("dfs.mv.scala")
 
-  /** Use to move a file or a folder.
+  /** Use to move a file or a folder to the specified path.
     *
     * @param fs
     *   an instance of the Hadoop file system
     * @param from
+    *   source path
     * @param to
+    *   destination path
     * @return
     *   true when process succeeds false otherwise
     */
@@ -128,16 +130,19 @@ object mv {
     } else if(!dfs.exists(fs, from)) {
         logger.error(s"cannot move source : $from : because it is not found")
         !isMoved
-    } else if(dfs.exists(fs, to)) {
-        logger.error(s"cannot move : $from : to : $to : because destination already exists")
+    } else if(dfs.exists(fs, to) && dfs.isFile(fs, to)) {
+        logger.error(s"cannot move : $from : to : $to : because an existing file is found the end of the destination path")
+        !isMoved
+    } else if(!doAllParentDirExist(fs, to)) {
+        logger.error(s"cannot move : $from : to : $to : because parent folders are missing")
         !isMoved
     } else {
       val fromPath = new Path(from)
       val toPath = new Path(to)
       try {
-        fs.rename(fromPath, toPath)
+        val moved = fs.rename(fromPath, toPath)
         logger.info(s"source : $from : moved to path : $to")
-        isMoved
+        moved
       } catch {
         case pde: ParentNotDirectoryException =>
           logger.error(s"the parent path : $to : must not be a file")
@@ -146,22 +151,62 @@ object mv {
     }
   }
 
-  object into {
-    def apply(fs: FileSystem, from: String, to: String): Boolean = {
-      true
+  def doAllParentDirExist(fs: FileSystem, path: String): Boolean = {
+    val doesExist = true
+    val pathToEvaluate = path.split("/")
+    for (i <- 1 to pathToEvaluate.length) {
+      if(!dfs.exists(fs, pathToEvaluate.slice(0, i).mkString("/"))) {
+        return !doesExist
+      }
     }
-
+    doesExist
   }
 
+  /** Move a file or directory inside a specified directory.
+    * Create missing parent directory if any
+    *
+    * @param fs
+    *   an instance of the Hadoop file system
+    * @param from
+    *   source path
+    * @param to
+    *   destination path
+    * @return
+    *   true when process succeeds false otherwise
+    */
+  object into {
+    def apply(fs: FileSystem, from: String, to: String): Boolean = {
+      val isMoved = true
+      if (!dfs.isDirectory(fs, to)) {
+        logger.error(s"the destination : $to : must be a directory")
+        !isMoved
+      } else if (!doAllParentDirExist(fs, to)) {
+        mkdir(fs, to)
+        mv.apply(fs, from, to)
+      }
+      else {
+        mv.apply(fs, from, to)
+      }
+    }
+  }
+
+  /** Move a file or folder overwriting the destination
+    *
+    * @param fs
+    *   an instance of the Hadoop file system
+    * @param from
+    *   source path
+    * @param to
+    *   destination path
+    * @return
+    *   true when process succeeds false otherwise
+    */
   object over {
     def apply(fs: FileSystem, from: String, to: String): Boolean = {
       dfs.rm(fs, to, true)
       mv.apply(fs, from, to)
     }
   }
-}
-object cp {
-// static boolean 	copy(FileSystem fromFS, FileStatus fromStatus, FileSystem toFS, Path to, boolean deleteSource, boolean overwrite, Configuration conf)
 }
 
 object rm {
@@ -170,23 +215,17 @@ object rm {
   }
 }
 
-object run extends App {
-  val config = new Configuration
-  val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
-  val runningCluster = cluster.build()
-  val fs = runningCluster.getFileSystem()
-  val from = "source/dir/myDir/faouzi.txt"
-  val to = "source/dir/otherDir/julie.txt"
-  println("========== LOGGING ====================")
-  val isMoved = dfs.mv(fs, from, to)
-  println(isMoved)
-  // DIR* FSDirectory.unprotectedRenameTo: Rename destination /user/fbraza/source/dir/myDir/faouzi/julie/myDir
-  // is a directory or file under source /user/fbraza/source/dir/myDir
-  println("========== LOGGING ====================")
-  runningCluster.shutdown()
-}
-
-/** cp -> cp -> (toLocal: boolean ToRemote:boolean) rm -> delete, deleteOnExit
-  */
-
-// -rwxr-xr-x (represented in octal notation as 0755)
+// object run extends App {
+//   val config = new Configuration
+//   val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
+//   val runningCluster = cluster.build()
+//   val fs = runningCluster.getFileSystem()
+//   val from = "dst/could/be/any/file.txt"
+//   val to = "dst/could/be/any/new/dir/parent/"
+//   dfs.touch(fs, from, false)
+//   println("========== LOGGING ====================")
+//   val isMoved = dfs.mv(fs, from, to)
+//   println(isMoved)
+//   println("========== LOGGING ====================")
+//   runningCluster.shutdown()
+// }
