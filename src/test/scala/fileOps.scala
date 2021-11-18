@@ -8,6 +8,7 @@ import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
 import org.apache.hadoop.fs.FSDataOutputStream
 import org.apache.hadoop.ipc.RemoteException
 import org.apache.hadoop.util.Progressable
+import dfs.mv
 
 // Trait to create mini hadoop cluster Any test can extend from it and use the mini cluster
 trait miniHDFSRunner extends TestSuite with BeforeAndAfterAll {
@@ -97,62 +98,64 @@ class TestMkdir extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
 
 @DoNotDiscover
 class TestMv extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
-  "Renaming an existing file" should "work" in {
+  "if" should "return false if the destination is a descendant of the source" in {
     val fs = clusterTest.getFileSystem()
-    val sourceFile = "source/dir/source_file01.txt"
-    val destDir = "source/dir/"
-    val fileNewName = "new_source_file01.txt"
-    dfs.touch(fs, sourceFile, false)
-    assert(dfs.mv(fs = fs, from = sourceFile, to = destDir+fileNewName))
-  }
-
-  "Moving an existing file to an existing directory" should "work" in {
-    val fs = clusterTest.getFileSystem()
-    val sourceFile = "source/dir/source_file02.txt"
-    val destDir = "dest/dir02/"
-    val fileName = "source_file02.txt"
-    dfs.touch(fs = fs, path = sourceFile, overwrite = false)
+    val sourceFile = "source/dir/"
+    val destDir = "source/dir/host/home/"
     dfs.mkdir(fs = fs, path = destDir)
-    assert(dfs.mv(fs = fs, from = sourceFile, to = destDir+fileName))
-    assert(dfs.exists(fs = fs, path = destDir+fileName))
+    val isSuccess = dfs.mv(fs, from = sourceFile, to = destDir)
+    assert(!isSuccess)
   }
 
-  "Moving an existing file to an non-existing directory" should "not work" in {
+  "it" should "return false if the source does not exist" in {
     val fs = clusterTest.getFileSystem()
-    val sourceFile = "source/dir/source_file03.txt"
-    val destDir = "dest/dir03/"
-    val fileName = "source_file03.txt"
-    dfs.touch(fs = fs, path = sourceFile, overwrite = false)
-    assert(!dfs.mv(fs = fs, from = sourceFile, to = destDir+fileName))
-  }
-
-  "Moving a non-existing file to an existing directory" should "not work" in {
-    val fs = clusterTest.getFileSystem()
-    val sourceFile = "source/dir/source_file04.txt"
-    val destDir = "dest/dir04/"
+    val sourceFile = "source/dir/where/is_file_to_move.txt"
+    val destDir = "dst/could/be/any/dir/"
     dfs.mkdir(fs = fs, path = destDir)
-    assert(!dfs.mv(fs = fs, from = sourceFile, to = destDir))
+    val isSuccess = dfs.mv(fs, from = sourceFile, to = destDir)
+    assert(!isSuccess)
+  }
+
+  "it" should "return false if a file already exists at destination path" in {
+    val fs = clusterTest.getFileSystem()
+    val sourceFile = "source/is/random/my_file_to_move.txt"
+    val dest = "dst/is/another/dir/file_already_present.txt"
+    dfs.touch(fs = fs, path = sourceFile, overwrite = false)
+    dfs.touch(fs = fs, path = dest, overwrite = false)
+    val isSuccess = dfs.mv(fs, from = sourceFile, to = dest)
+    assert(!isSuccess)
+  }
+
+  "it" should "return false if one of the parent for destination is a file" in {
+    val fs = clusterTest.getFileSystem()
+    val source = "dst/yet/another/dir/"
+    val file = "dst/yet/another/file.txt"
+    val dest = "dst/yet/another/file.txt/in/the/middle"
+    dfs.touch(fs = fs, path = file, overwrite = false)
+    val isSuccess = dfs.mv(fs, from = source, to = dest)
+    assert(!isSuccess)
+  }
+
+  "it" should "return true when moving a file / folder into an existing or absent directory" in {
+    val fs = clusterTest.getFileSystem()
+    // first scenario
+    val file = "dst/yet/another/file.txt"
+    dfs.touch(fs =fs, path = file, overwrite = false)
+    val existingDestDir = "dst/could/be/any/"
+    dfs.mkdir(fs = fs, path = existingDestDir)
+    val nonExistingDestDir = "dst/could/be/any/new/dir/"
+    val isSuccess1 = mv(fs = fs, from = file, to = existingDestDir)
+    assert(isSuccess1)
+    // second scenario
+    val movedFile = "dst/could/be/any/file.txt"
+    val isSuccess2 = mv(fs = fs, from = movedFile, to = nonExistingDestDir)
+    assert(isSuccess2)
   }
 }
 
 
-  // "Moving a file to a non existing destination folder" should " not work" in {
-  //   val fs = clusterTest.getFileSystem()
-  //   val sourceFile = "source/dir/source_file.txt"
-  //   val destDir = "destination/dir/"
-  //   val fileNewName = "new_source_file.txt"
-  //   // before creation
-  //   assert(!dfs.mv(fs, sourceFile, destDir))
-  //   // create file and directory
-  //   dfs.touch(fs, sourceFile, false)
-  //   assert(!dfs.mv(fs, sourceFile, destDir+fileNewName))
-  // }
-
 class TestDistributor extends Stepwise(
-  Sequential(
-  new TestTouch,
-  new TestMkdir
-  )
+  Sequential(new TestTouch, new TestMkdir, new TestMv)
 )
 
 // BLOCKSIZE: 134217728
