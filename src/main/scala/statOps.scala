@@ -12,10 +12,10 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.fs.FSDataOutputStream
 
 object exists {
-  def apply(fs: FileSystem, path: String): Boolean =
+  def apply(path: String)(implicit fs: FileSystem): Boolean =
     fs.exists(new Path(path))
 
-  def apply(fs: FileSystem, path: Path): Boolean =
+  def apply(path: Path)(implicit fs: FileSystem): Boolean =
     fs.exists(path)
 }
 

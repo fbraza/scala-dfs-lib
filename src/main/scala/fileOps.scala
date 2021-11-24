@@ -49,13 +49,12 @@ object touch {
     *   true if operation succeeds false otherwise
     */
   def apply(
-      fs: FileSystem,
       path: String,
       overwrite: Boolean = false,
       bufferSize: Int = 4096,
       replicationFactor: Short = 1.toShort,
       blockSize: Long = 134217728
-  ): Boolean = {
+  )(implicit fs: FileSystem): Boolean = {
     val isCreated = true
     try {
       fs.create(new Path(path), overwrite, bufferSize, replicationFactor, blockSize).close()
@@ -85,10 +84,10 @@ object mkdir {
     * @return
     *   true if operation succeeded false otherwise
     */
-  def apply(fs: FileSystem, path: String): Boolean = {
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
     val pathDir = new Path(path)
     var isCreated = true
-    if (dfs.exists(fs, pathDir)) {
+    if (dfs.exists(pathDir)) {
       logger.error(s"cannot create directory at path : $path : already exists")
       !isCreated
     } else {
@@ -122,19 +121,19 @@ object mv {
     * @return
     *   true when process succeeds false otherwise
     */
-  def apply(fs: FileSystem, from: String, to: String): Boolean = {
+  def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
     val isMoved = true
     if (to.startsWith(from)) {
       logger.error(s"the destination : $to : cannot be a descendant of the source : $from ")
       !isMoved
-    } else if(!dfs.exists(fs, from)) {
+    } else if(!dfs.exists(from)) {
         logger.error(s"cannot move source : $from : because it is not found")
         !isMoved
-    } else if(dfs.exists(fs, to) && dfs.isFile(fs, to)) {
+    } else if(dfs.exists(to) && dfs.isFile(fs, to)) {
         logger.error(s"cannot move : $from : to : $to : because an existing file is found the end of the destination path")
         !isMoved
-    } else if(!doAllParentDirExist(fs, to)) {
-        logger.error(s"cannot move : $from : to : $to : because parent folders are missing")
+    } else if(!doAllParentDirExist(to)) {
+        logger.error(s"cannot move : $from : to : $to : because parent(s) or descendant(s) is (are) missing")
         !isMoved
     } else {
       val fromPath = new Path(from)
@@ -151,11 +150,11 @@ object mv {
     }
   }
 
-  def doAllParentDirExist(fs: FileSystem, path: String): Boolean = {
+  def doAllParentDirExist(path: String)(implicit fs: FileSystem): Boolean = {
     val doesExist = true
     val pathToEvaluate = path.split("/")
     for (i <- 1 to pathToEvaluate.length) {
-      if(!dfs.exists(fs, pathToEvaluate.slice(0, i).mkString("/"))) {
+      if(!dfs.exists(pathToEvaluate.slice(0, i).mkString("/"))) {
         return !doesExist
       }
     }
@@ -175,17 +174,27 @@ object mv {
     *   true when process succeeds false otherwise
     */
   object into {
-    def apply(fs: FileSystem, from: String, to: String): Boolean = {
+    val loggerInto = Logger("dfs.mv.into.scala")
+
+    /**
+      *
+      *
+      * @param from
+      * @param to
+      * @param fs
+      * @return
+      */
+    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
       val isMoved = true
       if (!dfs.isDirectory(fs, to)) {
-        logger.error(s"the destination : $to : must be a directory")
+        loggerInto.error(s"the destination : $to : must be a directory")
         !isMoved
-      } else if (!doAllParentDirExist(fs, to)) {
-        mkdir(fs, to)
-        mv.apply(fs, from, to)
+      } else if (!doAllParentDirExist(to)) {
+        mkdir(to)
+        mv.apply(from, to)
       }
       else {
-        mv.apply(fs, from, to)
+        mv.apply(from, to)
       }
     }
   }
@@ -202,9 +211,9 @@ object mv {
     *   true when process succeeds false otherwise
     */
   object over {
-    def apply(fs: FileSystem, from: String, to: String): Boolean = {
+    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
       dfs.rm(fs, to, true)
-      mv.apply(fs, from, to)
+      mv.apply(from, to)
     }
   }
 }
@@ -228,4 +237,4 @@ object rm {
 //   println(isMoved)
 //   println("========== LOGGING ====================")
 //   runningCluster.shutdown()
-// }
+// }  "it" should "return true when moving a file / folder into an existing or absent directory" in {
