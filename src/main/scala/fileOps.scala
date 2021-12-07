@@ -1,5 +1,6 @@
 package dfs
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import org.apache.hadoop.fs.{
   FileSystem,
   Path,
@@ -24,7 +25,7 @@ import org.apache.hadoop.conf.Configuration
   *
   * Code has been implemented to abstract away the most common errors raised by
   * the Hadoop FileSystem Java API. Errors are catched but always logged. Failed
-  * files / dirs operations return false otherwise true.
+  * files/dirs operations return false otherwise true.
   */
 object touch {
   val logger = Logger("dfs.touch.scala")
@@ -33,20 +34,13 @@ object touch {
     * It overwrites exisisting file when specified. Writing buffer size, replication factor
     * and block size can be specified.
     *
-    * @param fs
-    *   an instance of the Hadoop file system
-    * @param path
-    *   a string of the file absolute path
-    * @param overwrite
-    *   if set to true overwrite existing file
-    * @param bufferSize
-    *   size of the writing buffer, 4096 by default
-    * @param replicationFactor
-    *   Hadoop replication factor on data nodes, 1 by default
-    * @param blockSize
-    *   Hadoop file block size on data nodes, 134217728 bytes by default
-    * @return
-    *   true if operation succeeds false otherwise
+    * @param path a string of the file absolute path
+    * @param overwrite if set to true overwrite existing file
+    * @param bufferSize size of the writing buffer, 4096 by default
+    * @param replicationFactor Hadoop replication factor on data nodes, 1 by default
+    * @param blockSize Hadoop file block size on data nodes, 134217728 bytes by default
+    * @param fs an instance of the Hadoop file system
+    * @return true if operation succeeds false otherwise
     */
   def apply(
       path: String,
@@ -77,12 +71,9 @@ object mkdir {
   /** Create a directory and all its parents at indicated path.
     * Existing folders cannot be overwritten.
     *
-    * @param fs
-    *   an instance of the Hadoop file system
-    * @param path
-    *   absolute path of the file to be created
-    * @return
-    *   true if operation succeeded false otherwise
+    * @param path absolute path of the file to be created
+    * @param fs an instance of the Hadoop file system
+    * @return true if operation succeeded false otherwise
     */
   def apply(path: String)(implicit fs: FileSystem): Boolean = {
     val pathDir = new Path(path)
@@ -92,44 +83,46 @@ object mkdir {
       !isCreated
     } else {
         try {
-          fs.mkdirs(pathDir) // should be true if no error caught
+          fs.mkdirs(pathDir)
           logger.info(s"directory created at path : $path")
           isCreated
         } catch {
           case pde: ParentNotDirectoryException =>
-            logger.error(s"the parent path : $path : must not be a file")
+            logger.error(s"in the path : $path : a parent must not be a file")
             !isCreated
         }
     }
   }
 }
 
-/** Rename or move files or folders to the specified path. Successful operations
-  * return true otherwise false.
+/** Rename or move files or folders to the specified path. The [[dfs.mv]] function
+  * provides basic behavior. If you want to move a file or folder into a specific
+  * path (even if parents do not exist) use [[dfs.mv.into]]. To overwrite the
+  * destination use [[dfs.mv.over]]
+  *
+  * Code has been implemented to abstract away the most common errors raised by
+  * the Hadoop FileSystem Java API. Errors are catched but always logged. Failed
+  * files/dirs operations return false otherwise true.
   */
 object mv {
   val logger = Logger("dfs.mv.scala")
 
   /** Use to move a file or a folder to the specified path.
     *
-    * @param fs
-    *   an instance of the Hadoop file system
-    * @param from
-    *   source path
-    * @param to
-    *   destination path
-    * @return
-    *   true when process succeeds false otherwise
+    * @param from source path
+    * @param to destination path
+    * @param fs an instance of the Hadoop file system
+    * @return true when process succeeds false otherwise
     */
   def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
     val isMoved = true
     if (to.startsWith(from)) {
-      logger.error(s"the destination : $to : cannot be a descendant of the source : $from ")
+      logger.error(s"cannot move : $from : to : $to : destination cannot be a descendant of the source : $from ")
       !isMoved
     } else if(!dfs.exists(from)) {
-        logger.error(s"cannot move source : $from : because it is not found")
+        logger.error(s"cannot move : $from : to : $to : because it is not found")
         !isMoved
-    } else if(dfs.exists(to) && dfs.isFile(fs, to)) {
+    } else if(dfs.exists(to) && dfs.isFile(to)) {
         logger.error(s"cannot move : $from : to : $to : because an existing file is found the end of the destination path")
         !isMoved
     } else if(!doAllParentDirExist(to)) {
@@ -144,97 +137,121 @@ object mv {
         moved
       } catch {
         case pde: ParentNotDirectoryException =>
-          logger.error(s"the parent path : $to : must not be a file")
+          logger.error(s"cannot move : $to : the parents must not be a file")
           !isMoved
       }
     }
   }
 
-  def doAllParentDirExist(path: String)(implicit fs: FileSystem): Boolean = {
-    val doesExist = true
-    val pathToEvaluate = path.split("/")
-    for (i <- 1 to pathToEvaluate.length) {
-      if(!dfs.exists(pathToEvaluate.slice(0, i).mkString("/"))) {
-        return !doesExist
-      }
-    }
-    doesExist
-  }
-
   /** Move a file or directory inside a specified directory.
     * Create missing parent directory if any
     *
-    * @param fs
-    *   an instance of the Hadoop file system
-    * @param from
-    *   source path
-    * @param to
-    *   destination path
-    * @return
-    *   true when process succeeds false otherwise
+    * @param from source path
+    * @param to destination path
+    * @param fs an instance of the Hadoop file system
+    * @return true when process succeeds false otherwise
     */
   object into {
     val loggerInto = Logger("dfs.mv.into.scala")
 
-    /**
+    /** Move a file or folder to the specified destination.
+      * If destination does not exist it will create it.
       *
-      *
-      * @param from
-      * @param to
-      * @param fs
-      * @return
+      * @param from source path
+      * @param to destination path
+      * @param fs an instance of the Hadoop file system
+      * @return true when process succeeds false otherwise
       */
     def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
       val isMoved = true
-      if (!dfs.isDirectory(fs, to)) {
+      if (!doAllParentDirExist(to)) {
+        mkdir(to) && mv(from, to)
+      } else if (!dfs.isDirectory(to)) {
         loggerInto.error(s"the destination : $to : must be a directory")
         !isMoved
-      } else if (!doAllParentDirExist(to)) {
-        mkdir(to)
-        mv.apply(from, to)
-      }
-      else {
+      } else {
         mv.apply(from, to)
       }
     }
   }
 
-  /** Move a file or folder overwriting the destination
-    *
-    * @param fs
-    *   an instance of the Hadoop file system
-    * @param from
-    *   source path
-    * @param to
-    *   destination path
-    * @return
-    *   true when process succeeds false otherwise
-    */
   object over {
-    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
-      dfs.rm(fs, to, true)
-      mv.apply(from, to)
-    }
+
+    /** Move a file or a folder and overwrite its destination
+      *
+      *
+      * @param from source path
+      * @param to destination path
+      * @param fs an instance of the Hadoop file system
+      * @return true when process succeeds false otherwise
+      */
+    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = false
   }
 }
 
 object rm {
-  def apply(fs: FileSystem, path: String, recursive: Boolean): Boolean = {
-    fs.delete(new Path(path), recursive)
+  val logger = Logger("dfs.rm.scala")
+
+  /** Remove files only
+    *
+    *
+    * @param path file to delete
+    * @param fs an instance of the Hadoop file system
+    * @return
+    */
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
+    val isDeleted = true
+    if (!dfs.exists(path)) {
+      logger.error(s"cannot remove ${path}: Does not exists")
+      !isDeleted
+    } else if (dfs.isDirectory(path)) {
+      logger.error(s"cannot remove ${path}: It is a directory")
+      !isDeleted
+    } else {
+      val deleted = fs.delete(new Path(path))
+      logger.info(s"${path}: has been removed")
+      deleted
+    }
+  }
+
+  object r {
+    val logger = Logger("dfs.rm.r.scala")
+
+    /** Remove directories recursively
+      *
+      *
+      * @param path directory to delete
+      * @param fs an instance of the Hadoop file system
+      * @return true if folder is deleted false otherwise
+      */
+    def apply(path: String)(implicit fs: FileSystem): Boolean = {
+      val isDeleted = true
+      if (!dfs.exists(path)){
+        logger.error(s"cannot remove ${path}: Does not exists")
+        !isDeleted
+      } else if (isRootDir(path)) {
+        logger.error(s"cannot remove ${path}: It is a root directory")
+        !isDeleted
+      } else if (dfs.isFile(path)) {
+        logger.error(s"cannot remove recursively ${path}: It is a file")
+        !isDeleted
+      } else {
+        val deleted = fs.delete(new Path(path), true)
+        logger.info(s"${path}: has been removed")
+        isDeleted && deleted
+      }
+    }
   }
 }
 
-// object run extends App {
-//   val config = new Configuration
-//   val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
-//   val runningCluster = cluster.build()
-//   val fs = runningCluster.getFileSystem()
-//   val from = "dst/could/be/any/file.txt"
-//   val to = "dst/could/be/any/new/dir/parent/"
-//   dfs.touch(fs, from, false)
-//   println("========== LOGGING ====================")
-//   val isMoved = dfs.mv(fs, from, to)
-//   println(isMoved)
-//   println("========== LOGGING ====================")
-//   runningCluster.shutdown()
-// }  "it" should "return true when moving a file / folder into an existing or absent directory" in {
+object run extends App {
+  val config = new Configuration
+  val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
+  val runningCluster = cluster.build()
+  implicit val fs = runningCluster.getFileSystem()
+  val target = "/usr/my/directory"
+  println("========== LOGGING ====================")
+  mkdir(path = target)
+  println("========== LOGGING ====================")
+  runningCluster.shutdown()
+}
