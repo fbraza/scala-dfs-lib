@@ -11,6 +11,7 @@ import dfs.mkdir
 import dfs.mv
 import dfs.touch
 import dfs.exists
+import dfs.rm
 
 // Trait to create mini hadoop cluster Any test can extend from it and use the mini cluster
 trait miniHDFSRunner extends TestSuite with BeforeAndAfterAll {
@@ -215,7 +216,42 @@ class TestRm extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
     implicit val fs = clusterTest.getFileSystem()
     val target = "directory/to/delete/"
     mkdir(path = target)
+    val isDeleted = rm(path = target)
+    assert(!isDeleted)
+  }
 
+  "it" should "return false if target does not exist" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val target = "file/to/delete/do_not_exist.txt"
+    val isDeleted = rm(path = target)
+    assert(!isDeleted)
+  }
+
+  "it" should "return true when deleting an existing file" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val target = "file/to/delete/do_not_exist.txt"
+    touch(path = target)
+    val isDeleted = rm(path = target)
+    assert(isDeleted)
+  }
+}
+
+@DoNotDiscover
+class TestRmr extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
+
+  "it" should "return false if target does not exist" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val target = "directory/to/delete/does/not/exist"
+    val isDeleted = rm.r(path = target)
+    assert(!isDeleted)
+  }
+
+  "it" should "return false if target is one of root directories" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val target = "/usr/my/directory"
+    mkdir(path = target)
+    val isDeleted = rm.r(path = target)
+    assert(!isDeleted)
   }
 }
 
@@ -224,7 +260,9 @@ class TestDistributor extends Stepwise(
   new TestTouch,
   new TestMkdir,
   new TestMv,
-  new TestMvInto
+  new TestMvInto,
+  new TestRm,
+  new TestRmr
   )
 )
 
