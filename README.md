@@ -2,6 +2,9 @@
 
 ![logo](./assets/dfs-lib.png)
 
+## :exclamation: work in progress :exclamation:
+
+
 ## Functionality
 
 **DFS-Lib** provides a simple Scala interface for the HDFS filesystem API.
