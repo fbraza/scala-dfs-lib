@@ -2,7 +2,7 @@ name := "DFS-Lib"
 
 version := "1.0"
 
-scalaVersion := "2.12.12"
+scalaVersion := "2.12.20"
 
 libraryDependencies ++= Seq(
 "org.scalactic" %% "scalactic" % "3.2.2",
