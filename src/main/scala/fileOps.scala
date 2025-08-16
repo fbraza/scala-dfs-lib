@@ -49,18 +49,26 @@ object touch {
       replicationFactor: Short = 1.toShort,
       blockSize: Long = 134217728
   )(implicit fs: FileSystem): Boolean = {
-    val isCreated = true
+    val p = new Path(path)
     try {
-      fs.create(new Path(path), overwrite, bufferSize, replicationFactor, blockSize).close()
+      val parent = p.getParent
+      if (parent != null && !dfs.exists(parent)) {
+        logger.info(s"Parent directory ${parent} does not exist, creating it.")
+        fs.mkdirs(parent)
+      }
+      fs.create(p, overwrite, bufferSize, replicationFactor, blockSize).close()
       logger.info(s"file created at path : $path")
-      isCreated
+      true
     } catch {
       case fae: FileAlreadyExistsException =>
         logger.error(s"file at path : $path : already exists")
-        !isCreated
+        false
       case pde: ParentNotDirectoryException =>
         logger.error(s"the parent path : $path : must not be a file")
-        !isCreated
+        false
+      case e: Exception =>
+        logger.error(s"failed to create file at $path: ${e.getMessage}", e)
+        false
     }
   }
 }
@@ -77,19 +85,20 @@ object mkdir {
     */
   def apply(path: String)(implicit fs: FileSystem): Boolean = {
     val pathDir = new Path(path)
-    var isCreated = true
     if (dfs.exists(pathDir)) {
       logger.error(s"cannot create directory at path : $path : already exists")
-      !isCreated
+      false
     } else {
         try {
-          fs.mkdirs(pathDir)
-          logger.info(s"directory created at path : $path")
-          isCreated
+          val created = fs.mkdirs(pathDir)
+          if (created) {
+            logger.info(s"directory created at path : $path")
+          }
+          created
         } catch {
           case pde: ParentNotDirectoryException =>
             logger.error(s"in the path : $path : a parent must not be a file")
-            !isCreated
+            false
         }
     }
   }
@@ -115,19 +124,18 @@ object mv {
     * @return true when process succeeds false otherwise
     */
   def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
-    val isMoved = true
     if (to.startsWith(from)) {
       logger.error(s"cannot move : $from : to : $to : destination cannot be a descendant of the source : $from ")
-      !isMoved
+      false
     } else if(!dfs.exists(from)) {
         logger.error(s"cannot move : $from : to : $to : because it is not found")
-        !isMoved
-    } else if(dfs.exists(to) && dfs.isFile(to)) {
+        false
+    } else if(dfs.exists(to) && isFile(fs, to)) {
         logger.error(s"cannot move : $from : to : $to : because an existing file is found the end of the destination path")
-        !isMoved
-    } else if(!doAllParentDirExist(to)) {
+        false
+    } else if(!dfs.doAllParentDirExist(to)) {
         logger.error(s"cannot move : $from : to : $to : because parent(s) or descendant(s) is (are) missing")
-        !isMoved
+        false
     } else {
       val fromPath = new Path(from)
       val toPath = new Path(to)
@@ -138,7 +146,7 @@ object mv {
       } catch {
         case pde: ParentNotDirectoryException =>
           logger.error(s"cannot move : $to : the parents must not be a file")
-          !isMoved
+          false
       }
     }
   }
@@ -163,12 +171,11 @@ object mv {
       * @return true when process succeeds false otherwise
       */
     def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
-      val isMoved = true
-      if (!doAllParentDirExist(to)) {
+      if (!dfs.doAllParentDirExist(to)) {
         mkdir(to) && mv(from, to)
-      } else if (!dfs.isDirectory(to)) {
+      } else if (!isDirectory(fs, to)) {
         loggerInto.error(s"the destination : $to : must be a directory")
-        !isMoved
+        false
       } else {
         mv.apply(from, to)
       }
@@ -185,7 +192,42 @@ object mv {
       * @param fs an instance of the Hadoop file system
       * @return true when process succeeds false otherwise
       */
-    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = false
+    def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
+      val fromPath = new Path(from)
+      val toPath = new Path(to)
+      if (to.startsWith(from)) {
+        logger.error(
+          s"cannot move : $from : to : $to : destination cannot be a descendant of the source"
+        )
+        return false
+      }
+      if (!dfs.exists(fromPath)) {
+        logger.error(s"cannot move : $from : because it does not exist")
+        return false
+      }
+      try {
+        if (dfs.exists(toPath)) {
+          val deleted = fs.delete(toPath, true) // recursive delete
+          if (!deleted) {
+            logger.error(s"failed to delete existing destination : $to")
+            return false
+          }
+        }
+        val toParentPath = toPath.getParent
+        if (toParentPath != null && !dfs.exists(toParentPath)) {
+          fs.mkdirs(toParentPath)
+        }
+        val moved = fs.rename(fromPath, toPath)
+        if (moved) {
+          logger.info(s"source : $from : moved to path : $to (overwritten)")
+        }
+        moved
+      } catch {
+        case e: Exception =>
+          logger.error(s"failed to move : $from : to : $to : ${e.getMessage}", e)
+          false
+      }
+    }
   }
 }
 
@@ -200,13 +242,12 @@ object rm {
     * @return
     */
   def apply(path: String)(implicit fs: FileSystem): Boolean = {
-    val isDeleted = true
     if (!dfs.exists(path)) {
       logger.error(s"cannot remove ${path}: Does not exists")
-      !isDeleted
-    } else if (dfs.isDirectory(path)) {
+      false
+    } else if (isDirectory(fs, path)) {
       logger.error(s"cannot remove ${path}: It is a directory")
-      !isDeleted
+      false
     } else {
       val deleted = fs.delete(new Path(path))
       logger.info(s"${path}: has been removed")
@@ -225,33 +266,30 @@ object rm {
       * @return true if folder is deleted false otherwise
       */
     def apply(path: String)(implicit fs: FileSystem): Boolean = {
-      val isDeleted = true
       if (!dfs.exists(path)){
         logger.error(s"cannot remove ${path}: Does not exists")
-        !isDeleted
-      } else if (isRootDir(path)) {
+        false
+      } else if (dfs.isRootDir(path)) {
         logger.error(s"cannot remove ${path}: It is a root directory")
-        !isDeleted
-      } else if (dfs.isFile(path)) {
+        false
+      } else if (isFile(fs, path)) {
         logger.error(s"cannot remove recursively ${path}: It is a file")
-        !isDeleted
+        false
       } else {
-        val deleted = fs.delete(new Path(path), true)
-        logger.info(s"${path}: has been removed")
-        isDeleted && deleted
+        try {
+          val deleted = fs.delete(new Path(path), true)
+          if (deleted) {
+            logger.info(s"${path}: has been removed")
+          } else {
+            logger.error(s"Failed to remove ${path}")
+          }
+          deleted
+        } catch {
+          case e: Exception =>
+            logger.error(s"Error removing ${path}: ${e.getMessage}", e)
+            false
+        }
       }
     }
   }
-}
-
-object run extends App {
-  val config = new Configuration
-  val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
-  val runningCluster = cluster.build()
-  implicit val fs = runningCluster.getFileSystem()
-  val target = "/usr/my/directory"
-  println("========== LOGGING ====================")
-  mkdir(path = target)
-  println("========== LOGGING ====================")
-  runningCluster.shutdown()
 }

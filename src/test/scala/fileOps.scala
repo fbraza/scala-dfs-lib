@@ -64,7 +64,7 @@ class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
   }
 
   "it" should "return false if one of the parent is a file" in {
-    implicit implicit val fs = clusterTest.getFileSystem()
+    implicit val fs = clusterTest.getFileSystem()
     val pathFile1 = "parent/directory/test_file04.txt"
     val pathFile2 = "parent/directory/test_file04.txt/test_file05.txt"
     touch(path = pathFile1)
@@ -207,6 +207,42 @@ class TestMvInto extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
 @DoNotDiscover
 class TestMvOver extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
 
+  "it" should "move a file and overwrite an existing file" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val from = "/from.txt"
+    val to = "/to.txt"
+    touch(from) should be(true)
+    touch(to) should be(true)
+    mv.over(from, to) should be(true)
+    fs.exists(new Path(from)) should be(false)
+    fs.exists(new Path(to)) should be(true)
+  }
+
+  "it" should "move a directory and overwrite an existing directory" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val from = "/from_dir"
+    val to = "/to_dir"
+    mkdir(from) should be(true)
+    touch(s"$from/file.txt") should be(true)
+    mkdir(to) should be(true)
+    touch(s"$to/old_file.txt") should be(true)
+
+    mv.over(from, to) should be(true)
+    fs.exists(new Path(from)) should be(false)
+    fs.exists(new Path(to)) should be(true)
+    fs.exists(new Path(s"$to/file.txt")) should be(true)
+    fs.exists(new Path(s"$to/old_file.txt")) should be(false)
+  }
+
+  "it" should "move a file to a path with non-existent parents" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val from = "/move_from.txt"
+    val to = "/new/parent/move_to.txt"
+    touch(from) should be(true)
+    mv.over(from, to) should be(true)
+    fs.exists(new Path(from)) should be(false)
+    fs.exists(new Path(to)) should be(true)
+  }
 }
 
 @DoNotDiscover
@@ -253,6 +289,20 @@ class TestRmr extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
     val isDeleted = rm.r(path = target)
     assert(!isDeleted)
   }
+
+  "it" should "recursively remove a directory" in {
+    implicit val fs = clusterTest.getFileSystem()
+    val dir = "/dir_to_remove"
+    mkdir(s"$dir/subdir") should be(true)
+    touch(s"$dir/subdir/file.txt") should be(true)
+    rm.r(dir) should be(true)
+    fs.exists(new Path(dir)) should be(false)
+  }
+
+  "it" should "not remove root directory" in {
+    implicit val fs = clusterTest.getFileSystem()
+    rm.r("/") should be(false)
+  }
 }
 
 class TestDistributor extends Stepwise(
@@ -261,12 +311,8 @@ class TestDistributor extends Stepwise(
   new TestMkdir,
   new TestMv,
   new TestMvInto,
+  new TestMvOver,
   new TestRm,
   new TestRmr
   )
 )
-
-// BLOCKSIZE: 134217728
-// BLOCKSIZE: fbraza
-// BLOCKSIZE: -rw-r--r--
-// BLOCKSIZE: 1
