@@ -6,8 +6,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import dfs.{size, replication, blockSize, getPath, stat}
 
-class statOpsTest extends AnyFlatSpec with Matchers {
-
+trait TestSetup {
   implicit val fs: FileSystem = {
     val conf = new Configuration()
     conf.set("fs.defaultFS", "file:///")
@@ -15,58 +14,68 @@ class statOpsTest extends AnyFlatSpec with Matchers {
   }
 
   // Create a temporary test file
-  private val testFile = File.createTempFile("test", ".txt")
+  protected val testFile = File.createTempFile("test", ".txt")
   testFile.deleteOnExit()
   new java.io.PrintWriter(testFile) { write("Hello, World!"); close() }
 
   // Create a temporary test directory
-  private val testDir = new File(File.createTempFile("testdir", "").getParentFile, "testdir")
+  protected val testDir = new File(File.createTempFile("testdir", "").getParentFile, "testdir")
   testDir.mkdir()
   testDir.deleteOnExit()
+}
 
+class TestSize extends AnyFlatSpec with Matchers with TestSetup {
   "size" should "return correct file size" in {
     val fileSize = dfs.size(testFile.getAbsolutePath)
     fileSize should be > 0L
   }
 
-  "size" should "throw FileNotFoundException for non-existent file" in {
+  it should "throw FileNotFoundException for non-existent file" in {
     intercept[FileNotFoundException] {
       dfs.size("/non/existent/file.txt")
     }
   }
+}
 
+class TestReplication extends AnyFlatSpec with Matchers with TestSetup {
   "replication" should "return replication factor" in {
     val replication = dfs.replication(testFile.getAbsolutePath)
     replication should be >= 0.toShort
   }
 
-  "replication" should "throw FileNotFoundException for non-existent file" in {
+  it should "throw FileNotFoundException for non-existent file" in {
     intercept[FileNotFoundException] {
       dfs.replication("/non/existent/file.txt")
     }
   }
+}
 
+class TestBlockSize extends AnyFlatSpec with Matchers with TestSetup {
   "blockSize" should "return block size" in {
     val blockSize = dfs.blockSize(testFile.getAbsolutePath)
     blockSize should be > 0L
   }
 
-  "blockSize" should "throw FileNotFoundException for non-existent file" in {
+  it should "throw FileNotFoundException for non-existent file" in {
     intercept[FileNotFoundException] {
       dfs.blockSize("/non/existent/file.txt")
     }
   }
+}
 
+class TestGetPath extends AnyFlatSpec with Matchers with TestSetup {
   "getPath" should "return normalized path" in {
     val normalizedPath = dfs.getPath(testFile.getAbsolutePath)
     normalizedPath should not be empty
   }
 
-  "getPath" should "work with non-existent file paths" in {
+  it should "work with non-existent file paths" in {
     val normalizedPath = dfs.getPath("/non/existent/file.txt")
     normalizedPath shouldBe "/non/existent/file.txt"
   }
+}
 
+class TestStat extends AnyFlatSpec with Matchers with TestSetup {
   "stat" should "return complete FileMetadata" in {
     val metadata = dfs.stat(testFile.getAbsolutePath)
     metadata shouldBe a [dfs.stat.FileMetadata]
@@ -83,13 +92,13 @@ class statOpsTest extends AnyFlatSpec with Matchers {
     metadata.blockSize should be > 0L
   }
 
-  "stat" should "return correct metadata for directory" in {
+  it should "return correct metadata for directory" in {
     val metadata = dfs.stat(testDir.getAbsolutePath)
     metadata.isFile shouldBe false
     metadata.isDirectory shouldBe true
   }
 
-  "stat" should "throw FileNotFoundException for non-existent file" in {
+  it should "throw FileNotFoundException for non-existent file" in {
     intercept[FileNotFoundException] {
       dfs.stat("/non/existent/file.txt")
     }
