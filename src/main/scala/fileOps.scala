@@ -130,7 +130,7 @@ object mv {
     } else if(!dfs.exists(from)) {
         logger.error(s"cannot move : $from : to : $to : because it is not found")
         false
-    } else if(dfs.exists(to) && isFile(fs, to)) {
+    } else if(dfs.exists(to) && isFile(to)) {
         logger.error(s"cannot move : $from : to : $to : because an existing file is found the end of the destination path")
         false
     } else if(!dfs.doAllParentDirExist(to)) {
@@ -173,7 +173,7 @@ object mv {
     def apply(from: String, to: String)(implicit fs: FileSystem): Boolean = {
       if (!dfs.doAllParentDirExist(to)) {
         mkdir(to) && mv(from, to)
-      } else if (!isDirectory(fs, to)) {
+      } else if (!isDirectory(to)) {
         loggerInto.error(s"the destination : $to : must be a directory")
         false
       } else {
@@ -245,7 +245,7 @@ object rm {
     if (!dfs.exists(path)) {
       logger.error(s"cannot remove ${path}: Does not exists")
       false
-    } else if (isDirectory(fs, path)) {
+    } else if (isDirectory(path)) {
       logger.error(s"cannot remove ${path}: It is a directory")
       false
     } else {
@@ -272,7 +272,7 @@ object rm {
       } else if (dfs.isRootDir(path)) {
         logger.error(s"cannot remove ${path}: It is a root directory")
         false
-      } else if (isFile(fs, path)) {
+      } else if (isFile(path)) {
         logger.error(s"cannot remove recursively ${path}: It is a file")
         false
       } else {

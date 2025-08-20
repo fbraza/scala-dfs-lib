@@ -66,14 +66,26 @@ object getPath {
 
 /** Check if a path is a file */
 object isFile {
-  def apply(fs: FileSystem, path: String): Boolean =
-    fs.getFileStatus(new Path(path)).isFile()
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
+    try {
+      fs.getFileStatus(new Path(path)).isFile()
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
 }
 
 /** Check if a path is a directory */
 object isDirectory {
-  def apply(fs: FileSystem, path: String): Boolean =
-    fs.getFileStatus(new Path(path)).isDirectory()
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
+    try {
+      fs.getFileStatus(new Path(path)).isDirectory()
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
 }
 
 
@@ -104,23 +116,25 @@ object stat {
   )
 
   def apply(path: String)(implicit fs: FileSystem): FileMetadata = {
-    if (!exists(path)) {
-      throw new java.io.FileNotFoundException(s"File not found: $path")
+    try {
+      val status = fs.getFileStatus(new Path(path))
+      FileMetadata(
+        path = status.getPath.toString,
+        size = status.getLen,
+        isFile = status.isFile,
+        isDirectory = status.isDirectory,
+        modificationTime = status.getModificationTime,
+        accessTime = status.getAccessTime,
+        owner = status.getOwner,
+        group = status.getGroup,
+        permissions = status.getPermission.toString,
+        replication = status.getReplication,
+        blockSize = status.getBlockSize
+      )
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
     }
-    val status = fs.getFileStatus(new Path(path))
-    FileMetadata(
-      path = status.getPath.toString,
-      size = status.getLen,
-      isFile = status.isFile,
-      isDirectory = status.isDirectory,
-      modificationTime = status.getModificationTime,
-      accessTime = status.getAccessTime,
-      owner = status.getOwner,
-      group = status.getGroup,
-      permissions = status.getPermission.toString,
-      replication = status.getReplication,
-      blockSize = status.getBlockSize
-    )
   }
 }
 
