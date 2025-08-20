@@ -7,11 +7,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream}
 import org.apache.hadoop.ipc.RemoteException
 import org.apache.hadoop.util.Progressable
-import dfs.mkdir
-import dfs.mv
-import dfs.touch
-import dfs.exists
-import dfs.rm
+import dfs.{mkdir, mv, touch, exists, rm}
 
 // Trait to create mini hadoop cluster Any test can extend from it and use the mini cluster
 trait miniHDFSRunner extends TestSuite with BeforeAndAfterAll {
@@ -43,7 +39,7 @@ class TestTouch extends AnyFlatSpec with miniHDFSRunner with should.Matchers {
   "it" should "return true when file created at indicated path" in {
     implicit val fs = clusterTest.getFileSystem()
     val pathFile = "parent/directory/test_file01.txt"
-    val isCreated = dfs.touch(path = pathFile)
+    val isCreated = touch(path = pathFile)
     assert(isCreated)
   }
 
