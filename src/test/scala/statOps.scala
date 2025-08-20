@@ -62,10 +62,9 @@ class statOpsTest extends AnyFlatSpec with Matchers {
     normalizedPath should not be empty
   }
 
-  "getPath" should "throw FileNotFoundException for non-existent file" in {
-    intercept[FileNotFoundException] {
-      dfs.getPath("/non/existent/file.txt")
-    }
+  "getPath" should "work with non-existent file paths" in {
+    val normalizedPath = dfs.getPath("/non/existent/file.txt")
+    normalizedPath shouldBe "/non/existent/file.txt"
   }
 
   "stat" should "return complete FileMetadata" in {

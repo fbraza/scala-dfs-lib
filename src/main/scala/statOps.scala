@@ -24,39 +24,42 @@ object exists {
 /** Get file or directory size in bytes */
 object size {
   def apply(path: String)(implicit fs: FileSystem): Long = {
-    if (!exists(path)) {
-      throw new java.io.FileNotFoundException(s"File not found: $path")
+    try {
+      fs.getFileStatus(new Path(path)).getLen
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
     }
-    fs.getFileStatus(new Path(path)).getLen
   }
 }
 
 /** Get replication factor for a file */
 object replication {
   def apply(path: String)(implicit fs: FileSystem): Short = {
-    if (!exists(path)) {
-      throw new java.io.FileNotFoundException(s"File not found: $path")
+    try {
+      fs.getFileStatus(new Path(path)).getReplication
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
     }
-    fs.getFileStatus(new Path(path)).getReplication
   }
 }
 
 /** Get block size for a file */
 object blockSize {
   def apply(path: String)(implicit fs: FileSystem): Long = {
-    if (!exists(path)) {
-      throw new java.io.FileNotFoundException(s"File not found: $path")
+    try {
+      fs.getFileStatus(new Path(path)).getBlockSize
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
     }
-    fs.getFileStatus(new Path(path)).getBlockSize
   }
 }
 
 /** Get normalized path */
 object getPath {
   def apply(path: String)(implicit fs: FileSystem): String = {
-    if (!exists(path)) {
-      throw new java.io.FileNotFoundException(s"File not found: $path")
-    }
     new Path(path).toString
   }
 }
