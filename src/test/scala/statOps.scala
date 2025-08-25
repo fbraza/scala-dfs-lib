@@ -1,84 +1,140 @@
+import collection.mutable.Stack
+import org.scalatest._
+import flatspec._
+import matchers._
+import org.apache.hadoop.hdfs.{MiniDFSCluster, DistributedFileSystem}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import java.io.File
+import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream}
+import org.apache.hadoop.ipc.RemoteException
+import org.apache.hadoop.util.Progressable
 import java.io.FileNotFoundException
 import dfs.{size, replication, blockSize, getPath, stat}
 
-trait TestSetup {
-  implicit val fs: FileSystem = {
-    val conf = new Configuration()
-    conf.set("fs.defaultFS", "file:///")
-    FileSystem.get(conf)
+// Trait to create mini hadoop cluster for statOps tests
+trait MiniHDFSRunnerStatOps extends TestSuite with BeforeAndAfterAll {
+  protected var clusterStatOps: MiniDFSCluster = _
+  protected var testFilePath: String = _
+  protected var testDirPath: String = _
+
+  // Spin up a mock Hadoop cluster before every tests
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    clusterStatOps = spinUpMiniClusterStatOps()
+
+    // Create test file and directory in HDFS
+    implicit val fs = clusterStatOps.getFileSystem()
+    testFilePath = "/test_file.txt"
+    testDirPath = "/test_dir"
+
+    // Create test file with content
+    val output = fs.create(new Path(testFilePath))
+    output.writeBytes("Hello, World!")
+    output.close()
+
+    // Create test directory
+    fs.mkdirs(new Path(testDirPath))
   }
 
-  // Create a temporary test file
-  protected val testFile = File.createTempFile("test", ".txt")
-  testFile.deleteOnExit()
-  new java.io.PrintWriter(testFile) { write("Hello, World!"); close() }
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    clusterStatOps.shutdown()
+  }
 
-  // Create a temporary test directory
-  protected val testDir = new File(File.createTempFile("testdir", "").getParentFile, "testdir")
-  testDir.mkdir()
-  testDir.deleteOnExit()
+  /** function defined to set configuration of the cluster on build it
+    * @return
+    *   a miniDFSCluster
+    */
+  private def spinUpMiniClusterStatOps(): MiniDFSCluster = {
+    val config = new Configuration()
+    val cluster = new MiniDFSCluster.Builder(config).numDataNodes(1)
+    return cluster.build()
+  }
 }
 
-class TestSize extends AnyFlatSpec with Matchers with TestSetup {
+@DoNotDiscover
+class TestSize
+    extends AnyFlatSpec
+    with MiniHDFSRunnerStatOps
+    with should.Matchers {
   "size" should "return correct file size" in {
-    val fileSize = dfs.size(testFile.getAbsolutePath)
+    implicit val fs = clusterStatOps.getFileSystem()
+    val fileSize = dfs.size(testFilePath)
     fileSize should be > 0L
   }
 
   it should "throw FileNotFoundException for non-existent file" in {
+    implicit val fs = clusterStatOps.getFileSystem()
     intercept[FileNotFoundException] {
       dfs.size("/non/existent/file.txt")
     }
   }
 }
 
-class TestReplication extends AnyFlatSpec with Matchers with TestSetup {
+@DoNotDiscover
+class TestReplication
+    extends AnyFlatSpec
+    with MiniHDFSRunnerStatOps
+    with should.Matchers {
   "replication" should "return replication factor" in {
-    val replication = dfs.replication(testFile.getAbsolutePath)
+    implicit val fs = clusterStatOps.getFileSystem()
+    val replication = dfs.replication(testFilePath)
     replication should be >= 0.toShort
   }
 
   it should "throw FileNotFoundException for non-existent file" in {
+    implicit val fs = clusterStatOps.getFileSystem()
     intercept[FileNotFoundException] {
       dfs.replication("/non/existent/file.txt")
     }
   }
 }
 
-class TestBlockSize extends AnyFlatSpec with Matchers with TestSetup {
+@DoNotDiscover
+class TestBlockSize
+    extends AnyFlatSpec
+    with MiniHDFSRunnerStatOps
+    with should.Matchers {
   "blockSize" should "return block size" in {
-    val blockSize = dfs.blockSize(testFile.getAbsolutePath)
+    implicit val fs = clusterStatOps.getFileSystem()
+    val blockSize = dfs.blockSize(testFilePath)
     blockSize should be > 0L
   }
 
   it should "throw FileNotFoundException for non-existent file" in {
+    implicit val fs = clusterStatOps.getFileSystem()
     intercept[FileNotFoundException] {
       dfs.blockSize("/non/existent/file.txt")
     }
   }
 }
 
-class TestGetPath extends AnyFlatSpec with Matchers with TestSetup {
+@DoNotDiscover
+class TestGetPath
+    extends AnyFlatSpec
+    with MiniHDFSRunnerStatOps
+    with should.Matchers {
   "getPath" should "return normalized path" in {
-    val normalizedPath = dfs.getPath(testFile.getAbsolutePath)
+    implicit val fs = clusterStatOps.getFileSystem()
+    val normalizedPath = dfs.getPath(testFilePath)
     normalizedPath should not be empty
   }
 
   it should "work with non-existent file paths" in {
+    implicit val fs = clusterStatOps.getFileSystem()
     val normalizedPath = dfs.getPath("/non/existent/file.txt")
     normalizedPath shouldBe "/non/existent/file.txt"
   }
 }
 
-class TestStat extends AnyFlatSpec with Matchers with TestSetup {
+@DoNotDiscover
+class TestStat
+    extends AnyFlatSpec
+    with MiniHDFSRunnerStatOps
+    with should.Matchers {
   "stat" should "return complete FileMetadata" in {
-    val metadata = dfs.stat(testFile.getAbsolutePath)
-    metadata shouldBe a [dfs.stat.FileMetadata]
+    implicit val fs = clusterStatOps.getFileSystem()
+    val metadata = dfs.stat(testFilePath)
+    metadata shouldBe a[dfs.stat.FileMetadata]
     metadata.path should not be empty
     metadata.size should be > 0L
     metadata.isFile shouldBe true
@@ -93,14 +149,18 @@ class TestStat extends AnyFlatSpec with Matchers with TestSetup {
   }
 
   it should "return correct metadata for directory" in {
-    val metadata = dfs.stat(testDir.getAbsolutePath)
+    implicit val fs = clusterStatOps.getFileSystem()
+    val metadata = dfs.stat(testDirPath)
     metadata.isFile shouldBe false
     metadata.isDirectory shouldBe true
   }
 
   it should "throw FileNotFoundException for non-existent file" in {
+    implicit val fs = clusterStatOps.getFileSystem()
     intercept[FileNotFoundException] {
       dfs.stat("/non/existent/file.txt")
     }
   }
 }
+
+// Removed individual distributor - using MasterTestSuite instead
