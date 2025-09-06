@@ -27,11 +27,19 @@ dfs.touch(fs = fs, path = pathFile)
 
 ### mkdir
 
+TO ADD
+
 ### mv
+
+TO ADD
 
 ### mv.into
 
+TO ADD
+
 ### mv.over
+
+TO ADD
 
 ### cp
 
