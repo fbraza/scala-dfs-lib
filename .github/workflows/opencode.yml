@@ -12,10 +12,10 @@ on:
 jobs:
   opencode:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@opencode')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@opencode')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@opencode')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@opencode') || contains(github.event.issue.title, '@opencode')))
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/opencode')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '/opencode')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '/opencode')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '/opencode') || contains(github.event.issue.title, '/opencode')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
