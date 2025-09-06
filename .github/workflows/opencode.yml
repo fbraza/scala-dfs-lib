@@ -32,5 +32,5 @@ jobs:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
         with:
           model: zhipuai/glm-4.5
-          # share: true
-          # github_token: ${{ secrets.MY_GITHUB_TOKEN }}
+          share: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
