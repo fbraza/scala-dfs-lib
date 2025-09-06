@@ -10,7 +10,9 @@ package dfs
 import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.fs.FSDataOutputStream
+import java.io.FileNotFoundException
 
+/** Check if a file or directory exists */
 object exists {
   def apply(path: String)(implicit fs: FileSystem): Boolean =
     fs.exists(new Path(path))
@@ -19,14 +21,71 @@ object exists {
     fs.exists(path)
 }
 
-object isFile {
-  def apply(fs: FileSystem, path: String): Boolean =
-    fs.getFileStatus(new Path(path)).isFile()
+/** Get file or directory size in bytes */
+object size {
+  def apply(path: String)(implicit fs: FileSystem): Long = {
+    try {
+      fs.getFileStatus(new Path(path)).getLen
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
 }
 
+/** Get replication factor for a file */
+object replication {
+  def apply(path: String)(implicit fs: FileSystem): Short = {
+    try {
+      fs.getFileStatus(new Path(path)).getReplication
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
+}
+
+/** Get block size for a file */
+object blockSize {
+  def apply(path: String)(implicit fs: FileSystem): Long = {
+    try {
+      fs.getFileStatus(new Path(path)).getBlockSize
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
+}
+
+/** Get normalized path */
+object getPath {
+  def apply(path: String)(implicit fs: FileSystem): String = {
+    new Path(path).toString
+  }
+}
+
+/** Check if a path is a file */
+object isFile {
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
+    try {
+      fs.getFileStatus(new Path(path)).isFile()
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
+}
+
+/** Check if a path is a directory */
 object isDirectory {
-  def apply(fs: FileSystem, path: String): Boolean =
-    fs.getFileStatus(new Path(path)).isDirectory()
+  def apply(path: String)(implicit fs: FileSystem): Boolean = {
+    try {
+      fs.getFileStatus(new Path(path)).isDirectory()
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
+  }
 }
 
 
@@ -37,6 +96,57 @@ object doAllParentDirExist {
     val parent = pathObj.getParent()
     if (parent == null) true // Root path, no parent
     else fs.exists(parent)
+  }
+}
+
+/** Comprehensive file metadata case class and stat object */
+object stat {
+  /** FileMetadata 
+   * @path String
+   * @size Long
+   * @isFile Boolean
+   * @isDirectory Boolean
+   * @modificationTime Long
+   * @accessTime Long
+   * @owner String
+   * @group String
+   * @permissions String
+   * @replication Short
+   * @blockSize Long*/
+  case class FileMetadata(
+    path: String,
+    size: Long,
+    isFile: Boolean,
+    isDirectory: Boolean,
+    modificationTime: Long,
+    accessTime: Long,
+    owner: String,
+    group: String,
+    permissions: String,
+    replication: Short,
+    blockSize: Long
+  )
+
+  def apply(path: String)(implicit fs: FileSystem): FileMetadata = {
+    try {
+      val status = fs.getFileStatus(new Path(path))
+      FileMetadata(
+        path = status.getPath.toString,
+        size = status.getLen,
+        isFile = status.isFile,
+        isDirectory = status.isDirectory,
+        modificationTime = status.getModificationTime,
+        accessTime = status.getAccessTime,
+        owner = status.getOwner,
+        group = status.getGroup,
+        permissions = status.getPermission.toString,
+        replication = status.getReplication,
+        blockSize = status.getBlockSize
+      )
+    } catch {
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"File not found: $path")
+    }
   }
 }
 
