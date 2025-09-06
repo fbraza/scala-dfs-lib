@@ -101,6 +101,18 @@ object doAllParentDirExist {
 
 /** Comprehensive file metadata case class and stat object */
 object stat {
+  /** FileMetadata 
+   * @path String
+   * @size Long
+   * @isFile Boolean
+   * @isDirectory Boolean
+   * @modificationTime Long
+   * @accessTime Long
+   * @owner String
+   * @group String
+   * @permissions String
+   * @replication Short
+   * @blockSize Long*/
   case class FileMetadata(
     path: String,
     size: Long,
