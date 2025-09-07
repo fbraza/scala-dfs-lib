@@ -15,6 +15,8 @@ class MasterTestSuite extends Stepwise(
     new TestReplication,
     new TestBlockSize,
     new TestGetPath,
-    new TestStat
+    new TestStat,
+    // PermOps tests
+    new TestChown
   )
 )
