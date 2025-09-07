@@ -29,3 +29,4 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         with:
           model: openrouter/anthropic/claude-sonnet-4
+          share: true
