@@ -123,7 +123,7 @@ class TestChown
     val newGroup = "testgroup"
     
     // Change ownership recursively
-    chown.recursive(fs, testDirPath, newOwner, newGroup)
+    chown.r(fs, testDirPath, newOwner, newGroup)
     
     // Verify directory ownership changed
     val dirStatus = fs.getFileStatus(new Path(testDirPath))
@@ -150,7 +150,7 @@ class TestChown
     val originalGroup = originalStatus.getGroup
     
     // Change only owner recursively
-    chown.recursive(fs, testDirPath, newOwner)
+    chown.r(fs, testDirPath, newOwner)
     
     // Verify owner changed but group remained
     val dirStatus = fs.getFileStatus(new Path(testDirPath))
@@ -166,7 +166,7 @@ class TestChown
   it should "throw FileNotFoundException for non-existent directory" in {
     implicit val fs = clusterPermOps.getFileSystem()
     intercept[FileNotFoundException] {
-      chown.recursive(fs, "/non/existent/dir", "testuser")
+      chown.r(fs, "/non/existent/dir", "testuser")
     }
   }
 
@@ -175,7 +175,7 @@ class TestChown
     val newOwner = "singleuser"
     
     // Apply recursive to single file
-    chown.recursive(fs, testFilePath, newOwner)
+    chown.r(fs, testFilePath, newOwner)
     
     // Verify file ownership changed
     val status = fs.getFileStatus(new Path(testFilePath))

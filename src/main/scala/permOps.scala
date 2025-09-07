@@ -30,13 +30,10 @@ object chown {
   def apply(fs: FileSystem, path: String, owner: String): Unit = {
     val pathObj = new Path(path)
     try {
-      if (!fs.exists(pathObj)) {
-        throw new FileNotFoundException(s"Path does not exist: $path")
-      }
       fs.setOwner(pathObj, owner, null)
     } catch {
       case e: FileNotFoundException =>
-        throw e
+        throw new FileNotFoundException(s"Cannot change owner: File not found at $path")
       case e: IOException =>
         throw new IOException(s"Failed to change owner for $path: ${e.getMessage}", e)
     }
@@ -53,21 +50,18 @@ object chown {
   def apply(fs: FileSystem, path: String, owner: String, group: String): Unit = {
     val pathObj = new Path(path)
     try {
-      if (!fs.exists(pathObj)) {
-        throw new FileNotFoundException(s"Path does not exist: $path")
-      }
       fs.setOwner(pathObj, owner, group)
     } catch {
-      case e: FileNotFoundException =>
-        throw e
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"Cannot change owner: File not found at $path")
       case e: IOException =>
         throw new IOException(s"Failed to change owner for $path: ${e.getMessage}", e)
-    }
+      }
   }
 
   /** Recursively change ownership for directories
     */
-  object recursive {
+  object r {
     /** Recursively change owner for directory and all contents
       * @param fs FileSystem instance
       * @param path Path to the directory
@@ -91,9 +85,6 @@ object chown {
       val pathObj = new Path(path)
       
       try {
-        if (!fs.exists(pathObj)) {
-          throw new FileNotFoundException(s"Path does not exist: $path")
-        }
         
         def changeOwnerRecursive(current: Path): Unit = {
           val status = fs.getFileStatus(current)
@@ -109,10 +100,10 @@ object chown {
         
         changeOwnerRecursive(pathObj)
       } catch {
-        case e: FileNotFoundException =>
-          throw e
-        case e: IOException =>
-          throw new IOException(s"Failed to recursively change owner for $path: ${e.getMessage}", e)
+      case _: FileNotFoundException =>
+        throw new FileNotFoundException(s"Cannot change owner: File not found at $path")
+      case e: IOException =>
+        throw new IOException(s"Failed to change owner for $path: ${e.getMessage}", e)
       }
     }
   }
