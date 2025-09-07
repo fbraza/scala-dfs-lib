@@ -76,7 +76,7 @@ class TestChown
     val originalOwner = originalStatus.getOwner
     
     // Change owner
-    chown(fs, testFilePath, newOwner)
+    chown( testFilePath, newOwner)
     
     // Verify owner changed
     val newStatus = fs.getFileStatus(new Path(testFilePath))
@@ -90,7 +90,7 @@ class TestChown
     val newGroup = "testgroup"
     
     // Change owner and group
-    chown(fs, testFilePath, newOwner, newGroup)
+    chown( testFilePath, newOwner, newGroup)
     
     // Verify both changed
     val status = fs.getFileStatus(new Path(testFilePath))
@@ -103,7 +103,7 @@ class TestChown
     val newOwner = "testuser"
     
     // Change directory owner
-    chown(fs, testDirPath, newOwner)
+    chown( testDirPath, newOwner)
     
     // Verify directory owner changed
     val status = fs.getFileStatus(new Path(testDirPath))
@@ -113,7 +113,7 @@ class TestChown
   it should "throw FileNotFoundException for non-existent file" in {
     implicit val fs = clusterPermOps.getFileSystem()
     intercept[FileNotFoundException] {
-      chown(fs, "/non/existent/file.txt", "testuser")
+      chown( "/non/existent/file.txt", "testuser")
     }
   }
 
@@ -123,7 +123,7 @@ class TestChown
     val newGroup = "testgroup"
     
     // Change ownership recursively
-    chown.r(fs, testDirPath, newOwner, newGroup)
+    chown.r( testDirPath, newOwner, newGroup)
     
     // Verify directory ownership changed
     val dirStatus = fs.getFileStatus(new Path(testDirPath))
@@ -150,7 +150,7 @@ class TestChown
     val originalGroup = originalStatus.getGroup
     
     // Change only owner recursively
-    chown.r(fs, testDirPath, newOwner)
+    chown.r( testDirPath, newOwner)
     
     // Verify owner changed but group remained
     val dirStatus = fs.getFileStatus(new Path(testDirPath))
@@ -166,7 +166,7 @@ class TestChown
   it should "throw FileNotFoundException for non-existent directory" in {
     implicit val fs = clusterPermOps.getFileSystem()
     intercept[FileNotFoundException] {
-      chown.r(fs, "/non/existent/dir", "testuser")
+      chown.r( "/non/existent/dir", "testuser")
     }
   }
 
@@ -175,7 +175,7 @@ class TestChown
     val newOwner = "singleuser"
     
     // Apply recursive to single file
-    chown.r(fs, testFilePath, newOwner)
+    chown.r( testFilePath, newOwner)
     
     // Verify file ownership changed
     val status = fs.getFileStatus(new Path(testFilePath))

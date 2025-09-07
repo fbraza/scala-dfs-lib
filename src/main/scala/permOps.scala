@@ -21,18 +21,17 @@ object Perm {
   */
 object chown {
   /** Change file owner
-    * @param fs FileSystem instance
     * @param path Path to the file/directory
     * @param owner New owner username
     * @throws FileNotFoundException if the path does not exist
     * @throws IOException if there is an I/O error or permission denied
     */
-  def apply(fs: FileSystem, path: String, owner: String): Unit = {
+  def apply(path: String, owner: String)(implicit fs: FileSystem): Unit = {
     val pathObj = new Path(path)
     try {
       fs.setOwner(pathObj, owner, null)
     } catch {
-      case e: FileNotFoundException =>
+      case _: FileNotFoundException =>
         throw new FileNotFoundException(s"Cannot change owner: File not found at $path")
       case e: IOException =>
         throw new IOException(s"Failed to change owner for $path: ${e.getMessage}", e)
@@ -40,14 +39,13 @@ object chown {
   }
   
   /** Change file owner and group
-    * @param fs FileSystem instance
     * @param path Path to the file/directory
     * @param owner New owner username
     * @param group New group name
     * @throws FileNotFoundException if the path does not exist
     * @throws IOException if there is an I/O error or permission denied
     */
-  def apply(fs: FileSystem, path: String, owner: String, group: String): Unit = {
+  def apply(path: String, owner: String, group: String)(implicit fs: FileSystem): Unit = {
     val pathObj = new Path(path)
     try {
       fs.setOwner(pathObj, owner, group)
@@ -63,25 +61,23 @@ object chown {
     */
   object r {
     /** Recursively change owner for directory and all contents
-      * @param fs FileSystem instance
       * @param path Path to the directory
       * @param owner New owner username
       * @throws FileNotFoundException if the path does not exist
       * @throws IOException if there is an I/O error or permission denied
       */
-    def apply(fs: FileSystem, path: String, owner: String): Unit = {
-      apply(fs, path, owner, null)
+    def apply(path: String, owner: String)(implicit fs: FileSystem): Unit = {
+      apply(path, owner, null)
     }
     
     /** Recursively change owner and group for directory and all contents
-      * @param fs FileSystem instance
       * @param path Path to the directory
       * @param owner New owner username
       * @param group New group name (optional)
       * @throws FileNotFoundException if the path does not exist
       * @throws IOException if there is an I/O error or permission denied
       */
-    def apply(fs: FileSystem, path: String, owner: String, group: String): Unit = {
+    def apply(path: String, owner: String, group: String)(implicit fs: FileSystem): Unit = {
       val pathObj = new Path(path)
       
       try {
@@ -112,7 +108,13 @@ object chown {
 /** Set permission
   */
 object chmod {
-  def apply(fs: FileSystem, path: String, perm: FsPermission): Unit = {
+  /** Set file permissions
+    * @param path Path to the file/directory
+    * @param perm Permission to set
+    * @throws FileNotFoundException if the path does not exist
+    * @throws IOException if there is an I/O error or permission denied
+    */
+  def apply(path: String, perm: FsPermission)(implicit fs: FileSystem): Unit = {
     val pathToSet = new Path(path)
     fs.setPermission(pathToSet, perm)
   }
