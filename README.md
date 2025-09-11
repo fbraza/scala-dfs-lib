@@ -226,10 +226,6 @@ sbt test
 
 ---
 
-## Author
-
----
-
 ## Acknowledgement
 
 Special thanks to @lihaoyi for his Scala libraries, particularly OS-Lib, which heavily inspired this library's design patterns.
