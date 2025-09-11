@@ -2,45 +2,234 @@
 
 ![logo](./assets/dfs-lib.png)
 
-## :exclamation: work in progress :exclamation:
+Simple Scala interface for HDFS filesystem operations.
 
-
-## Functionality
-
-**DFS-Lib** provides a simple Scala interface for the HDFS filesystem API.
+---
 
 ## Setup
 
-## Usage
-
-Right now and because work is in progress DFS-Lib does not aim to be a complete replacement for the `org.apache.hadoop.fs`. That being said, DFS-Lib should provide all necessary functions to perform basic and advanced file operations.
-
-### touch
-
-It creates a file to the specified path with default permissions. Keep in mind, that any missing parent directory found in the path is also created (default behavior brought by the java API, it might change in the future). You can decide to (i) overwrite the file, set (ii) the hadoop replication factor, (iii) the hadoop block size, (iv) the writing buffer size. It returns `true` when operation is successful:
+Add to your `build.sbt`:
 
 ```scala
-val fs = yourHadoopClusterInstance.getFileSystem()
-val pathFile = "parent/directory/test_file01.txt"
-dfs.touch(fs = fs, path = pathFile)
+libraryDependencies += "org.apache.hadoop" % "hadoop-hdfs" % "2.8.1"
+libraryDependencies += "org.apache.hadoop" % "hadoop-common" % "2.8.1"
+libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
 ```
 
-### mkdir
+---
 
-### mv
+## Usage
 
-### mv.into
+Import the library and initialize your filesystem:
 
-### mv.over
+```scala
+import dfs._
+import org.apache.hadoop.fs.FileSystem
 
-### cp
+implicit val fs: FileSystem = yourHadoopClusterInstance.getFileSystem()
+```
 
-### rm
+### File operations
+
+#### Create files
+
+Create a file with automatic parent directory creation:
+
+```scala
+val created = touch("path/to/file.txt")
+```
+
+Create with custom parameters:
+
+```scala
+val created = touch(
+  path = "path/to/file.txt",
+  overwrite = true,
+  bufferSize = 8192,
+  replicationFactor = 3,
+  blockSize = 268435456
+)
+```
+
+#### Create directories
+
+Create a directory and all parent directories:
+
+```scala
+val created = mkdir("path/to/directory")
+```
+
+#### Move and rename
+
+Basic move operation:
+
+```scala
+val moved = mv("source/path", "destination/path")
+```
+
+Move into a directory (creates parents if needed):
+
+```scala
+val moved = mv.into("source/path", "destination/directory")
+```
+
+Move with overwrite:
+
+```scala
+val moved = mv.over("source/path", "destination/path")
+```
+
+#### Copy operations
+
+Copy a single file:
+
+```scala
+cp(fs, "source/file.txt", "destination/file.txt")
+```
+
+Copy directories recursively:
+
+```scala
+cp.recursive(fs, "source/directory", "destination/directory")
+```
+
+#### Remove operations
+
+Remove a file:
+
+```scala
+val removed = rm("path/to/file.txt")
+```
+
+Remove directories recursively:
+
+```scala
+val removed = rm.r("path/to/directory")
+```
+
+### File inspection
+
+#### Check existence
+
+```scala
+val fileExists = exists("path/to/file.txt")
+val isDir = isDirectory("path/to/directory")
+val isFile = isFile("path/to/file.txt")
+```
+
+#### Get file information
+
+Get file size:
+
+```scala
+val fileSize = size("path/to/file.txt")
+```
+
+Get comprehensive file metadata:
+
+```scala
+val metadata = stat("path/to/file.txt")
+println(s"Size: ${metadata.size} bytes")
+println(s"Owner: ${metadata.owner}")
+println(s"Permissions: ${metadata.permissions}")
+```
+
+#### List directory contents
+
+List files in directory:
+
+```scala
+val files = ls(fs, "path/to/directory")
+```
+
+List with detailed information:
+
+```scala
+val details = ls.details(fs, "path/to/directory")
+println(details)
+```
+
+### File content operations
+
+#### Read file contents
+
+Read entire file:
+
+```scala
+val content = cat(fs, "path/to/file.txt")
+```
+
+Read with line numbers:
+
+```scala
+val content = cat.numbered(fs, "path/to/file.txt")
+```
+
+Read first N lines:
+
+```scala
+val head = cat.head(fs, "path/to/file.txt", lines = 20)
+```
+
+Read last N lines:
+
+```scala
+val tail = cat.tail(fs, "path/to/file.txt", lines = 10)
+```
+
+### Permission operations
+
+#### Change ownership
+
+Change file owner:
+
+```scala
+chown("path/to/file.txt", "newowner")
+```
+
+Change owner and group:
+
+```scala
+chown("path/to/file.txt", "newowner", "newgroup")
+```
+
+Recursive ownership change:
+
+```scala
+chown.r("path/to/directory", "newowner", "newgroup")
+```
+
+#### Change permissions
+
+Set file permissions using Unix-style permissions:
+
+```scala
+val permissions = Perm("755")
+chmod("path/to/file.txt", permissions)
+```
+
+---
+
+## Error handling
+
+All operations return `Boolean` for success/failure or throw exceptions for critical errors. Failed operations are logged with detailed error messages.
+
+---
 
 ## For developers
 
+Run tests:
+
+```bash
+sbt test
+```
+
+---
+
 ## Author
+
+---
 
 ## Acknowledgement
 
-I would like to thank @lihaoyi for his fabulous scala libraries and notably the OS-Lib tool he developed. I got heavely inspired by the way code is written there.
+Special thanks to @lihaoyi for his Scala libraries, particularly OS-Lib, which heavily inspired this library's design patterns.
