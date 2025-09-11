@@ -1,21 +1,13 @@
 package dfs
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import org.apache.hadoop.fs.{
   FileSystem,
   Path,
-  FileStatus,
-  PathFilter,
-  FSDataOutputStream,
   FileAlreadyExistsException,
   ParentNotDirectoryException
 }
-import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.hadoop.ipc.RemoteException
 import com.typesafe.scalalogging.Logger
 
-import org.apache.hadoop.hdfs.MiniDFSCluster
-import org.apache.hadoop.conf.Configuration
 
 /** Create a file to the specified path with default permissions. Create missing
   * parent directories found in the path. You can decide to (i) overwrite the

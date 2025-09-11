@@ -7,9 +7,7 @@
   */
 package dfs
 
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
-import org.apache.hadoop.fs.permission.FsPermission
-import org.apache.hadoop.fs.FSDataOutputStream
+import org.apache.hadoop.fs.{FileSystem, Path}
 import java.io.FileNotFoundException
 
 /** Check if a file or directory exists */

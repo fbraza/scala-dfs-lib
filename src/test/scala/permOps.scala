@@ -1,14 +1,11 @@
-import collection.mutable.Stack
-import org.scalatest._
-import flatspec._
-import matchers._
-import org.apache.hadoop.hdfs.{MiniDFSCluster, DistributedFileSystem}
+import org.scalatest.{DoNotDiscover, BeforeAndAfterAll, TestSuite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.apache.hadoop.fs.{Path}
+import org.apache.hadoop.hdfs.{MiniDFSCluster}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream}
-import org.apache.hadoop.ipc.RemoteException
-import org.apache.hadoop.util.Progressable
-import java.io.{FileNotFoundException, IOException}
-import dfs.{chown, chmod}
+import java.io.{FileNotFoundException}
+import dfs.{chown}
 
 // Trait to create mini hadoop cluster for permOps tests
 trait MiniHDFSRunnerPermOps extends TestSuite with BeforeAndAfterAll {
@@ -65,7 +62,7 @@ trait MiniHDFSRunnerPermOps extends TestSuite with BeforeAndAfterAll {
 class TestChown
     extends AnyFlatSpec
     with MiniHDFSRunnerPermOps
-    with should.Matchers {
+    with Matchers {
   
   "chown" should "change file owner" in {
     implicit val fs = clusterPermOps.getFileSystem()

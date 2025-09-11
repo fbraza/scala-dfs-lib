@@ -1,7 +1,6 @@
 package dfs
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 import java.io.{FileNotFoundException, IOException}
 
