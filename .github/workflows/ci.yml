@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+        
+    - name: Setup Task
+      uses: arduino/setup-task@v2
+      with:
+        version: 3.x
+        
+    - name: Cache SBT dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.sbt
+          ~/.ivy2/cache
+          ~/.coursier/cache
+          ~/.cache/coursier
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', 'project/build.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-sbt-
+          
+    - name: Clean build artifacts
+      run: task clean
+      
+    - name: Compile for all Scala versions
+      run: task compile
+      
+    - name: Run tests for all Scala versions
+      run: task test
+      
+    - name: List available tasks (debug)
+      run: task --list
