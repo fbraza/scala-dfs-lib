@@ -1,0 +1,25 @@
+version: '3'
+
+tasks:
+  default:
+    desc: "Run all tasks"
+    deps: [clean, compile, test]
+
+  compile:
+    desc: "Compile for all Scala versions"
+    cmds:
+      - sbt ++2.12.20 compile
+      - sbt ++2.13.15 compile
+      - sbt ++3.3.1 compile
+
+  test:
+    desc: "Test for all Scala versions"
+    cmds:
+      - sbt ++2.12.20 test
+      - sbt ++2.13.15 test
+      - sbt ++3.3.1 test
+
+  clean:
+    desc: "Clean build artifacts"
+    cmds:
+      - sbt clean

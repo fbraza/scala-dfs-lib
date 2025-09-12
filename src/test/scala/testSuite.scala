@@ -1,4 +1,4 @@
-import org.scalatest._
+import org.scalatest.{Stepwise, Sequential}
 
 class MasterTestSuite extends Stepwise(
   Sequential(

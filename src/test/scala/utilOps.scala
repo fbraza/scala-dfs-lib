@@ -1,13 +1,10 @@
-import collection.mutable.Stack
-import org.scalatest._
-import flatspec._
-import matchers._
-import org.apache.hadoop.hdfs.{MiniDFSCluster, DistributedFileSystem}
+import org.scalatest.{DoNotDiscover, BeforeAndAfterAll, TestSuite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.apache.hadoop.hdfs.{MiniDFSCluster}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream, PathFilter}
-import org.apache.hadoop.ipc.RemoteException
-import org.apache.hadoop.util.Progressable
-import dfs.{mkdir, mv, touch, exists, rm, cp, ls, cat}
+import org.apache.hadoop.fs.{Path, PathFilter}
+import dfs.{mkdir, touch, exists, rm, cp, ls, cat}
 import java.io.{FileNotFoundException, IOException}
 
 // Trait to create mini hadoop cluster Any test can extend from it and use the mini cluster
@@ -40,7 +37,7 @@ trait MiniHDFSRunnerCoreOps extends TestSuite with BeforeAndAfterAll {
 class TestCp
     extends AnyFlatSpec
     with MiniHDFSRunnerCoreOps
-    with should.Matchers {
+    with Matchers {
 
   "cp" should "copy a file from source to destination" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -101,7 +98,7 @@ class TestCp
 class TestCpRecursive
     extends AnyFlatSpec
     with MiniHDFSRunnerCoreOps
-    with should.Matchers {
+    with Matchers {
 
   "cp.recursive" should "copy a directory and all its contents" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -175,7 +172,7 @@ class TestCpRecursive
 class TestLs
     extends AnyFlatSpec
     with MiniHDFSRunnerCoreOps
-    with should.Matchers {
+    with Matchers {
 
   "ls" should "list directory contents" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -261,7 +258,7 @@ class TestLs
 class TestLsDetails
     extends AnyFlatSpec
     with MiniHDFSRunnerCoreOps
-    with should.Matchers {
+    with Matchers {
 
   "ls.details" should "list directory contents with detailed information" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -292,7 +289,7 @@ class TestLsDetails
 class TestCat
     extends AnyFlatSpec
     with MiniHDFSRunnerCoreOps
-    with should.Matchers {
+    with Matchers {
 
   "cat" should "display file contents" in {
     implicit val fs = clusterTest.getFileSystem()

@@ -1,14 +1,10 @@
-import collection.mutable.Stack
-import org.scalatest._
-import flatspec._
-import matchers._
-import org.apache.hadoop.hdfs.{MiniDFSCluster, DistributedFileSystem}
+import org.scalatest.{DoNotDiscover, BeforeAndAfterAll, TestSuite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.apache.hadoop.hdfs.{MiniDFSCluster}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream}
-import org.apache.hadoop.ipc.RemoteException
-import org.apache.hadoop.util.Progressable
+import org.apache.hadoop.fs.{Path}
 import java.io.FileNotFoundException
-import dfs.{size, replication, blockSize, getPath, stat}
 
 // Trait to create mini hadoop cluster for statOps tests
 trait MiniHDFSRunnerStatOps extends TestSuite with BeforeAndAfterAll {
@@ -55,7 +51,7 @@ trait MiniHDFSRunnerStatOps extends TestSuite with BeforeAndAfterAll {
 class TestSize
     extends AnyFlatSpec
     with MiniHDFSRunnerStatOps
-    with should.Matchers {
+    with Matchers {
   "size" should "return correct file size" in {
     implicit val fs = clusterStatOps.getFileSystem()
     val fileSize = dfs.size(testFilePath)
@@ -74,7 +70,7 @@ class TestSize
 class TestReplication
     extends AnyFlatSpec
     with MiniHDFSRunnerStatOps
-    with should.Matchers {
+    with Matchers {
   "replication" should "return replication factor" in {
     implicit val fs = clusterStatOps.getFileSystem()
     val replication = dfs.replication(testFilePath)
@@ -93,7 +89,7 @@ class TestReplication
 class TestBlockSize
     extends AnyFlatSpec
     with MiniHDFSRunnerStatOps
-    with should.Matchers {
+    with Matchers {
   "blockSize" should "return block size" in {
     implicit val fs = clusterStatOps.getFileSystem()
     val blockSize = dfs.blockSize(testFilePath)
@@ -112,7 +108,7 @@ class TestBlockSize
 class TestGetPath
     extends AnyFlatSpec
     with MiniHDFSRunnerStatOps
-    with should.Matchers {
+    with Matchers {
   "getPath" should "return normalized path" in {
     implicit val fs = clusterStatOps.getFileSystem()
     val normalizedPath = dfs.getPath(testFilePath)
@@ -130,7 +126,7 @@ class TestGetPath
 class TestStat
     extends AnyFlatSpec
     with MiniHDFSRunnerStatOps
-    with should.Matchers {
+    with Matchers {
   "stat" should "return complete FileMetadata" in {
     implicit val fs = clusterStatOps.getFileSystem()
     val metadata = dfs.stat(testFilePath)

@@ -1,12 +1,9 @@
-import collection.mutable.Stack
-import org.scalatest._
-import flatspec._
-import matchers._
-import org.apache.hadoop.hdfs.{MiniDFSCluster, DistributedFileSystem}
+import org.scalatest.{DoNotDiscover, BeforeAndAfterAll, TestSuite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.apache.hadoop.hdfs.{MiniDFSCluster}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FileStatus, FSDataOutputStream}
-import org.apache.hadoop.ipc.RemoteException
-import org.apache.hadoop.util.Progressable
+import org.apache.hadoop.fs.{Path}
 import dfs.{mkdir, mv, touch, exists, rm}
 
 // Trait to create mini hadoop cluster Any test can extend from it and use the mini cluster
@@ -38,7 +35,7 @@ trait MiniHDFSRunnerFileOps extends TestSuite with BeforeAndAfterAll {
 class TestTouch
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return true when file created at indicated path" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -77,7 +74,7 @@ class TestTouch
 class TestMkdir
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return true when directory created at indicated path" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -108,7 +105,7 @@ class TestMkdir
 class TestMv
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return false if the destination is a descendant of the source" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -189,7 +186,7 @@ class TestMv
 class TestMvInto
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return false if destination is not a directory" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -217,7 +214,7 @@ class TestMvInto
 class TestMvOver
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "move a file and overwrite an existing file" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -261,7 +258,7 @@ class TestMvOver
 class TestRm
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return false if target is a directory" in {
     implicit val fs = clusterTest.getFileSystem()
@@ -291,7 +288,7 @@ class TestRm
 class TestRmr
     extends AnyFlatSpec
     with MiniHDFSRunnerFileOps
-    with should.Matchers {
+    with Matchers {
 
   "it" should "return false if target does not exist" in {
     implicit val fs = clusterTest.getFileSystem()
